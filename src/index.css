@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Libre Caslon Text", "Georgia", serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #154539;
+  --color-secondary: #3c6755;
+  --color-accent: #C5A059;
+  --color-bg-beige: #F7F4EC;
+  --color-card-white: #ffffff;
+}
+
+body {
+  background-color: var(--color-bg-beige);
+  font-family: var(--font-sans);
+  color: #1b1c1c;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbars to look extremely high-end */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c0c8c4;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a3d4c3;
+}

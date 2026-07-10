@@ -1,0 +1,6 @@
+{
+  "name": "Retiro Studio AI",
+  "description": "Asistente inteligente y diseñador de retiros transformacionales para coaches, terapeutas y facilitadores de bienestar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
