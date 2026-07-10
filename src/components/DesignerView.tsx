@@ -59,6 +59,7 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
   // Handle generation call
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isGenerating) return; // Prevent duplicate execution
     if (!formData.name || !formData.goal) {
       alert("Por favor ingresa un nombre y un objetivo para el retiro.");
       return;
@@ -98,12 +99,12 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
         onSetNewRetreat(data.retreat);
         setActiveDayTab(1);
       } else {
-        alert(data.error || "Ocurrió un error al generar el retiro.");
+        alert(data.error || "No pudimos generar el retiro. Revisa la configuración de Gemini o inténtalo nuevamente.");
       }
     } catch (err) {
       clearInterval(interval);
       console.error(err);
-      alert("No se pudo conectar con el servidor para la generación inteligente.");
+      alert("No pudimos generar el retiro. Revisa la configuración de Gemini o inténtalo nuevamente.");
     } finally {
       setIsGenerating(false);
     }
@@ -377,10 +378,15 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
 
           <button
             type="submit"
-            className="w-full py-4 bg-[#154539] hover:bg-[#1a5143] text-white rounded-xl font-semibold shadow-md flex items-center justify-center space-x-2.5 transition-all text-sm md:text-base mt-6"
+            disabled={isGenerating}
+            className={`w-full py-4 text-white rounded-xl font-semibold shadow-md flex items-center justify-center space-x-2.5 transition-all text-sm md:text-base mt-6 ${
+              isGenerating 
+                ? 'bg-gray-400 cursor-not-allowed opacity-75' 
+                : 'bg-[#154539] hover:bg-[#1a5143] cursor-pointer'
+            }`}
           >
-            <Sparkles className="w-5 h-5 text-[#C5A059]" />
-            <span>Generar Estructura Inteligente con IA</span>
+            <Sparkles className={`w-5 h-5 text-[#C5A059] ${isGenerating ? 'animate-spin' : ''}`} />
+            <span>{isGenerating ? 'Generando Estructura...' : 'Generar Estructura Inteligente con IA'}</span>
           </button>
         </form>
       </div>

@@ -542,10 +542,26 @@ const generateFallbackRetreat = (
 const cleanAndParseJson = (text: string): any => {
   if (!text) return {};
   let cleaned = text.trim();
-  // Remove markdown code block markers
+  
+  // Try to find markdown code block ```json ... ```
+  const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/;
+  const matchJson = cleaned.match(jsonBlockRegex);
+  if (matchJson && matchJson[1]) {
+    cleaned = matchJson[1].trim();
+  } else {
+    // Try to find generic code block ``` ... ```
+    const codeBlockRegex = /```\s*([\s\S]*?)\s*```/;
+    const matchCode = cleaned.match(codeBlockRegex);
+    if (matchCode && matchCode[1]) {
+      cleaned = matchCode[1].trim();
+    }
+  }
+
+  // Remove any remaining start/end backticks just in case
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```[a-zA-Z]*\n/, "").replace(/\n```$/, "").trim();
   }
+  
   return JSON.parse(cleaned);
 };
 
@@ -570,24 +586,15 @@ app.post("/api/generate-retreat", async (req, res) => {
       return res.status(400).json({ error: "Faltan campos obligatorios (nombre, tipo y objetivo principal)." });
     }
 
+    // 9. Validation of GEMINI_API_KEY existence
+    const serverApiKey = process.env.GEMINI_API_KEY || "";
+    if (!serverApiKey || serverApiKey.trim() === "" || serverApiKey === "undefined" || serverApiKey.includes("MY_GEMINI_API_KEY")) {
+      console.error("[API Error] GEMINI_API_KEY no está configurada en el servidor.");
+      return res.status(400).json({ error: "GEMINI_API_KEY no está configurada en el servidor" });
+    }
+
     const requestedDuration = Number(duration) || 3;
     const requestedCount = Number(participantsCount) || 15;
-
-    // Check if API key is configured or valid
-    if (!apiKey || apiKey === "undefined" || apiKey.includes("MY_GEMINI_API_KEY")) {
-      console.log("No valid Gemini API Key detected. Using robust Dynamic Local Generator fallback.");
-      const generated = generateFallbackRetreat(
-        name, type, goal, requestedDuration, requestedCount,
-        participantsAge || "30-50 años", participantsProfile || "General",
-        experienceLevel || "Principiante", locationType || "Naturaleza",
-        desiredEnergy || "Serena", expectedResults || "Paz mental"
-      );
-      retreatsDb.set(generated.id, generated);
-      return res.json({ 
-        retreat: generated,
-        warning: "Se utilizó el Generador de Alta Fidelidad de Retiro Studio AI debido a que no hay una clave de API configurada." 
-      });
-    }
 
     const dynamicsContext = getDynamicsContext();
 
@@ -662,8 +669,18 @@ Estructura el JSON devuelto con estas propiedades exactas:
   "notes": ["Notas de facilitación logísticas generales"]
 }`;
 
+    // Dynamic instance of GoogleGenAI using the fresh serverApiKey
+    const dynamicAi = new GoogleGenAI({
+      apiKey: serverApiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
     // Set a timeout of 22 seconds for Gemini API to keep things fast
-    const generatePromise = ai.models.generateContent({
+    const generatePromise = dynamicAi.models.generateContent({
       model: "gemini-3.5-flash",
       contents: promptText,
       config: {
@@ -674,16 +691,30 @@ Estructura el JSON devuelto con estas propiedades exactas:
     });
 
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Timeout calling Gemini API")), 22000);
+      setTimeout(() => {
+        const err = new Error("Timeout calling Gemini API");
+        (err as any).isTimeout = true;
+        reject(err);
+      }, 22000);
     });
 
     // Race the generation against timeout
     const response = (await Promise.race([generatePromise, timeoutPromise])) as any;
 
     const responseText = response.text || "";
+    if (!responseText.trim()) {
+      throw new Error("Respuesta vacía recibida del servidor de Gemini.");
+    }
+
     console.log("Gemini API call returned successfully. Parsing response...");
     
-    const parsedData = cleanAndParseJson(responseText);
+    let parsedData;
+    try {
+      parsedData = cleanAndParseJson(responseText);
+    } catch (parseErr: any) {
+      console.error("Failed to parse Gemini response as JSON. Original response:", responseText);
+      throw new Error("La respuesta de Gemini no tiene un formato JSON válido.");
+    }
 
     // Add unique ID and process the parsed response
     const id = 'retreat_' + Date.now();
@@ -742,20 +773,31 @@ Estructura el JSON devuelto con estas propiedades exactas:
     res.json({ retreat: generatedRetreat });
 
   } catch (err: any) {
-    console.error("Failed to generate retreat via Gemini, using dynamic fallback generator:", err.message);
-    // If anything fails (API error, JSON error, parsing error), we fallback gracefully
-    // to our high-fidelity, custom dynamic retreat generator so the user NEVER experiences a hang!
-    const fallbackRetreat = generateFallbackRetreat(
-      name, type, goal, Number(duration) || 3, Number(participantsCount) || 15,
-      participantsAge || "30-50 años", participantsProfile || "General",
-      experienceLevel || "Principiante", locationType || "Naturaleza",
-      desiredEnergy || "Serena", expectedResults || "Integración profunda"
-    );
-    retreatsDb.set(fallbackRetreat.id, fallbackRetreat);
-    res.json({ 
-      retreat: fallbackRetreat,
-      warning: "La generación con IA fue canalizada a través del generador dinámico de respaldo para asegurar la respuesta inmediata. ¡Tu retiro está listo!"
-    });
+    console.error("Failed to generate retreat via Gemini:", err);
+    
+    // Categorize error precisely
+    let userFriendlyError = "No pudimos generar el retiro. Revisa la configuración de Gemini o inténtalo nuevamente.";
+    const errMsg = (err.message || "").toLowerCase();
+
+    if (err.isTimeout) {
+      userFriendlyError = "Tiempo de espera agotado al conectar con Gemini.";
+    } else if (errMsg.includes("api key") && (errMsg.includes("not valid") || errMsg.includes("invalid") || errMsg.includes("not found") || errMsg.includes("api_key_invalid"))) {
+      userFriendlyError = "La clave de API de Gemini es inválida o no existe.";
+    } else if (errMsg.includes("permission") || errMsg.includes("denied") || errMsg.includes("forbidden") || errMsg.includes("authorized")) {
+      userFriendlyError = "Error de permisos al acceder a Gemini.";
+    } else if (errMsg.includes("quota") || errMsg.includes("limit") || errMsg.includes("rate limit") || errMsg.includes("429") || errMsg.includes("exhausted")) {
+      userFriendlyError = "Se ha superado el límite de uso o cuota de la API de Gemini.";
+    } else if (errMsg.includes("model") && (errMsg.includes("not found") || errMsg.includes("unsupported") || errMsg.includes("not exist") || errMsg.includes("model_not_found"))) {
+      userFriendlyError = "Error del modelo de Gemini seleccionado.";
+    } else if (errMsg.includes("vacía") || errMsg.includes("empty") || errMsg.includes("no text")) {
+      userFriendlyError = "Respuesta vacía del modelo Gemini.";
+    } else if (errMsg.includes("json")) {
+      userFriendlyError = "La respuesta de Gemini no pudo ser decodificada como JSON estructurado.";
+    } else if (errMsg.includes("fetch") || errMsg.includes("conn") || errMsg.includes("network") || errMsg.includes("econnrefused")) {
+      userFriendlyError = "Error de conexión al intentar alcanzar los servidores de Gemini.";
+    }
+
+    res.status(500).json({ error: userFriendlyError, details: err.message });
   }
 });
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   BookOpen, Search, Filter, Sparkles, Plus, ChevronDown, 
-  ChevronUp, Calendar, AlertTriangle, Layers, Clock, Check, Star 
+  ChevronUp, Calendar, AlertTriangle, Layers, Clock, Check, Star, X, Sparkle 
 } from 'lucide-react';
 import { Dynamic, Retreat } from '../types';
 import { OFFICIAL_DYNAMICS } from '../data/dynamics';
@@ -35,6 +35,10 @@ export const DynamicsView: React.FC<DynamicsViewProps> = ({
   const [aiIntensity, setAiIntensity] = useState('Media');
   const [aiDuration, setAiDuration] = useState(20);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // New AI Generated Dynamic modal state
+  const [generatedDynamic, setGeneratedDynamic] = useState<Dynamic | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const categories = ['Todas', 'Meditación', 'Icebreaker', 'Creatividad', 'Silencio', 'Cuerpo', 'Liberación', 'Integración'];
 
@@ -148,10 +152,10 @@ export const DynamicsView: React.FC<DynamicsViewProps> = ({
 
       const data = await response.json();
       if (response.ok && data.dynamic) {
-        setDynamicsDb(prev => [data.dynamic, ...prev]);
-        setExpandedId(data.dynamic.id);
+        setGeneratedDynamic(data.dynamic);
+        setIsModalOpen(true);
         setAiObjective('');
-        onShowNotification("✨ Dinámica co-creada con éxito. ¡Revísala en tu catálogo!");
+        onShowNotification("✨ ¡Tu dinámica ha sido diseñada por la IA! Revisa los detalles en la pantalla.");
       } else {
         alert(data.error || "Ocurrió un error.");
       }
@@ -161,6 +165,22 @@ export const DynamicsView: React.FC<DynamicsViewProps> = ({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleSaveDynamicToLibrary = () => {
+    if (!generatedDynamic) return;
+    setDynamicsDb(prev => [generatedDynamic, ...prev]);
+    setIsModalOpen(false);
+    setExpandedId(generatedDynamic.id);
+    onShowNotification(`✨ "${generatedDynamic.name}" se guardó con éxito en tu biblioteca.`);
+  };
+
+  const handleSaveDynamicToLibraryAndRetreat = () => {
+    if (!generatedDynamic) return;
+    setDynamicsDb(prev => [generatedDynamic, ...prev]);
+    handleAddDynamicToRetreat(generatedDynamic);
+    setIsModalOpen(false);
+    setExpandedId(generatedDynamic.id);
   };
 
   return (
@@ -456,6 +476,147 @@ export const DynamicsView: React.FC<DynamicsViewProps> = ({
           </div>
         </form>
       </div>
+
+      {/* AI Generated Dynamic Pop-up Modal */}
+      {isModalOpen && generatedDynamic && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in animate-duration-200" id="ai-dynamic-modal">
+          <div className="bg-white rounded-2xl border-2 border-amber-200/80 max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-scale-up animate-duration-200">
+            
+            {/* Modal Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50/40 to-white">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 bg-amber-50 rounded-lg text-[#C5A059]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-widest block">Diseñada por IA</span>
+                  <h3 className="font-serif text-xl font-bold text-[#154539]">{generatedDynamic.name}</h3>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Cerrar sin guardar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-gray-700">
+              
+              {/* Quick Info badges */}
+              <div className="flex flex-wrap gap-2.5">
+                <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full font-bold text-[10px]">
+                  Categoría: {generatedDynamic.category}
+                </span>
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-mono text-[10px] flex items-center">
+                  <Clock className="w-3 h-3 mr-1" /> {generatedDynamic.duration} minutos
+                </span>
+                <span className="px-2.5 py-1 bg-red-50 text-red-600 rounded-full font-bold text-[10px]">
+                  Intensidad: {generatedDynamic.intensity}
+                </span>
+              </div>
+
+              {/* Goal / Objective block */}
+              <div className="bg-gradient-to-r from-[#154539]/5 to-emerald-50/10 p-4 rounded-xl border border-[#154539]/10">
+                <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block mb-1">Objetivo del Ejercicio:</span>
+                <p className="text-gray-800 font-light leading-relaxed">{generatedDynamic.objective}</p>
+              </div>
+
+              {/* When to use & When to avoid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50/50 p-3 rounded-lg border border-gray-100">
+                  <span className="text-[9px] font-bold text-[#C5A059] uppercase tracking-wider block">Momento ideal para aplicarla:</span>
+                  <p className="text-gray-600 font-light mt-1">{generatedDynamic.whenToUse}</p>
+                </div>
+                <div className="bg-red-50/20 p-3 rounded-lg border border-red-100/30">
+                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider block flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" /> Contraindicaciones:
+                  </span>
+                  <p className="text-gray-600 font-light mt-1">{generatedDynamic.whenToAvoid}</p>
+                </div>
+              </div>
+
+              {/* Materials */}
+              <div>
+                <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block mb-1">Materiales sugeridos:</span>
+                <p className="text-gray-800 font-light bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                  {generatedDynamic.materials.join(', ') || 'Ninguno, solo presencia.'}
+                </p>
+              </div>
+
+              {/* Preparation */}
+              <div>
+                <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block mb-1">Preparación previa del espacio:</span>
+                <p className="text-gray-800 font-light bg-gray-50 p-2.5 rounded-lg border border-gray-100">{generatedDynamic.preparation}</p>
+              </div>
+
+              {/* Steps */}
+              <div>
+                <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block mb-1.5">Paso a Paso de la Dinámica:</span>
+                <ol className="list-decimal list-inside space-y-2 bg-gray-50 p-3.5 rounded-lg border border-gray-100">
+                  {generatedDynamic.steps.map((step, sIdx) => (
+                    <li key={sIdx} className="text-gray-800 font-light leading-relaxed pl-1">
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Facilitator script */}
+              {generatedDynamic.script && (
+                <div className="p-4 bg-[#154539] text-white rounded-xl shadow-inner">
+                  <span className="text-[9px] font-bold text-[#C5A059] uppercase tracking-widest block mb-1.5">Guion sugerido para el facilitador:</span>
+                  <p className="italic font-light leading-relaxed pl-3 border-l-2 border-[#C5A059] text-amber-50/90">
+                    "{generatedDynamic.script}"
+                  </p>
+                </div>
+              )}
+
+              {/* Reflection Questions */}
+              {generatedDynamic.reflectionQuestions && generatedDynamic.reflectionQuestions.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block mb-1">Preguntas de reflexión para el círculo:</span>
+                  <ul className="list-disc list-inside space-y-1 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                    {generatedDynamic.reflectionQuestions.map((q, qIdx) => (
+                      <li key={qIdx} className="text-gray-800 font-light">{q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-semibold text-gray-500 transition-colors text-center cursor-pointer"
+              >
+                Descartar
+              </button>
+              <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={handleSaveDynamicToLibrary}
+                  className="px-4 py-2.5 bg-white border border-[#154539] hover:bg-emerald-50/20 text-[#154539] rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Agregar a la biblioteca</span>
+                </button>
+                <button
+                  onClick={handleSaveDynamicToLibraryAndRetreat}
+                  className="px-5 py-2.5 bg-[#C5A059] hover:bg-[#b08b47] text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Guardar y Añadir al Retiro</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
