@@ -780,40 +780,117 @@ Resultados Esperados: "${retreatContext.expectedResults}"
 Perfil de Participantes: "${retreatContext.participantsProfile}"`;
     }
 
-    if (!apiKey) {
+    // Robust check for missing or placeholder API Keys
+    if (!apiKey || apiKey === "undefined" || apiKey.includes("MY_GEMINI_API_KEY")) {
       // High-quality static/rule-based assistant feedback if Gemini is not configured
       const lowMessage = message.toLowerCase();
-      let reply = "Hola. Como tu mentor de retiros, estoy aquí para guiarte en cada paso. ";
+      let reply = "Hola. Como tu mentor experto de retiros, estoy aquí para guiarte en cada paso técnico, logístico y humano del proceso. ";
       
-      if (lowMessage.includes("poca participación") || lowMessage.includes("participan") || lowMessage.includes("habla")) {
-        reply += `\n\n### Intervención para Baja Participación en el grupo:
-1. **No fuerces la palabra:** Si el grupo está callado, haz una ronda de 'vaciado somático' sacudiendo manos antes de pedir respuestas.
-2. **Usa el objeto de habla:** Introduce un cuarzo o piedra de río. Explica que solo quien lo tiene puede hablar, pero que también se permite sostenerlo en silencio absoluto durante un minuto si no desea hablar. Esto retira la presión de hablar.
-3. **Preguntas binarias rápidas:** En lugar de lanzar preguntas abiertas de inmediato, pide una respuesta corporal: 'Levanten la mano si hoy sintieron que la mente saboteaba la respiración'. Esto estimula la participación visual sin vulnerar inmediatamente a nadie.`;
-      } else if (lowMessage.includes("afectado") || lowMessage.includes("llor") || lowMessage.includes("emocion") || lowMessage.includes("contencion")) {
-        reply += `\n\n### Guía de Contención para Participante Afectado Emocionalmente:
-1. **Mantén la quietud del contenedor:** No corras inmediatamente a abrazarlo o consolarlo; esto suele cortar la catarsis y hacer sentir al participante expuesto. Sostiene una mirada cálida y respira profundamente en tu sitio.
-2. **Valida con el grupo:** Dile al grupo: 'La emoción de uno es la medicina de todos. Respiramos juntos para sostener este espacio'. Invita a todos a inhalar y exhalar con sonido sutil.
-3. **Apoyo físico sutil:** Ofrece un cojín o una manta. Si la intensidad es muy alta, haz que se acueste en postura de savasana (boca arriba) y pídele que sienta el contacto del suelo. El enraizamiento físico calma el sistema nervioso rápidamente.`;
-      } else if (lowMessage.includes("tiempo") || lowMessage.includes("retraso") || lowMessage.includes("reprogram")) {
-        reply += `\n\n### Gestión ante Falta de Tiempo o Retrasos en la Agenda:
-1. **Preserva los cierres:** Es un error común recortar la meditación o reflexión final. Es mejor acortar la duración del ejercicio principal o recortar la introducción teórica.
-2. **Ralentiza activamente:** Si corres para compensar el tiempo, el grupo se contagiará de tu ansiedad. Elige deliberadamente suspender una actividad menor en lugar de correr a través de todas.
-3. **Anuncio transparente:** Di al grupo de manera serena: 'Este espacio es orgánico y nos pide más permanencia hoy. Reajustaremos el bloque de la tarde para honrar el ritmo que hemos alcanzado'. El grupo valorará tu adaptabilidad profesional.`;
-      } else if (lowMessage.includes("cansad") || lowMessage.includes("sueño") || lowMessage.includes("baja energia")) {
-        reply += `\n\n### Recuperación de Energía para un Grupo Cansado:
-1. **Despertar Vocal:** Haz que todos se pongan de pie y exhalen haciendo un sonido 'Haaaa' liberador, vibrando el pecho.
-2. **Caminata de Dirección:** Pídeles que caminen por el salón cambiando de dirección de manera aleatoria cada vez que toques la campana. Esto rompe el automatismo psicofísico.
-3. **Aromaterapia:** Aplica una bruma de aceite esencial de menta o cítricos en la sala. El estímulo olfativo reconecta la mente con el presente en 3 segundos.`;
+      if (lowMessage.includes("poca participación") || lowMessage.includes("participan") || lowMessage.includes("habla") || lowMessage.includes("callad") || lowMessage.includes("silencio") || lowMessage.includes("no quieren hablar")) {
+        reply += `\n\n### Intervención para Baja Participación en el Grupo:
+La resistencia a hablar suele nacer del miedo a la vulnerabilidad o falta de seguridad psicológica en el círculo.
+
+1. **No fuerces la palabra individual:** Si el grupo está callado, evita preguntar directamente a alguien. Rompe la tensión con un 'vaciado somático' rápido (sacudir las manos, estirarse o suspirar colectivamente).
+2. **Utiliza el Objeto de Habla:** Saca una piedra de río o cuarzo. Solo quien sostiene el objeto tiene la palabra, pero haz explícito que se permite sostenerlo en silencio durante un minuto si no desea hablar. Esto libera la presión social de inmediato.
+3. **Dinámicas en Parejas:** Divide al grupo en parejas para responder la consigna durante 3 minutos. Al dialogar en un micro-contenedor de dos personas, la timidez disminuye y, al volver al círculo grande, la disposición para compartir aumenta un 80%.
+4. **Preguntas Corporales Rápidas:** Haz preguntas cerradas que requieran respuesta física antes de abrir los micrófonos: "Alcen la mano los que hoy sintieron que su mente saboteaba el silencio". Esto activa la presencia visual grupal.`;
+      } else if (lowMessage.includes("afectado") || lowMessage.includes("llor") || lowMessage.includes("emocion") || lowMessage.includes("contencion") || lowMessage.includes("catarsis") || lowMessage.includes("crisis") || lowMessage.includes("angustia")) {
+        reply += `\n\n### Guía de Contención para Procesos Emocionales Intensos (Llanto o Catarsis):
+La catarsis es un síntoma de que el contenedor de retiro es lo suficientemente seguro para descargar el estrés postraumático o las memorias del dolor.
+
+1. **Respeta la sacralidad de la emoción:** No corras inmediatamente a abrazar o dar pañuelos al participante que llora. Hacerlo de forma abrupta interrumpe la descarga del sistema nervioso y puede hacerlo sentir juzgado o expuesto. Sostiene una mirada de compasión y mantén tu respiración profunda.
+2. **Valida el proceso colectivamente:** Incluye al resto del grupo guiándolos a respirar juntos: "La medicina de uno es la medicina de todos. Vamos a tomar aire profundo juntos para sostener este espacio con amor".
+3. **Anclaje Físico Sutil:** Coloca suavemente una manta cálida sobre sus hombros o un cojín de apoyo. Si la intensidad es desbordante, pídele con voz suave que coloque las palmas de sus manos planas sobre el suelo para reconectarlo con la estabilidad física de la Tierra.
+4. **Acompañamiento Post-sesión:** Al finalizar la actividad, acércate en privado para validar su estado, asegurándole que todo lo liberado es parte de su sanación, y ofrécele un vaso de agua tibia con limón.`;
+      } else if (lowMessage.includes("tiempo") || lowMessage.includes("retraso") || lowMessage.includes("reprogram") || lowMessage.includes("agenda") || lowMessage.includes("tarde") || lowMessage.includes("retrasados")) {
+        reply += `\n\n### Gestión ante Falta de Tiempo o Desviaciones en la Agenda:
+En un retiro consciente, el tiempo debe estar al servicio de la transformación, y no al revés. Es normal y saludable que los bloques orgánicos requieran más permanencia.
+
+1. **Mantén una vibración de paz:** Si tú como facilitador te muestras ansioso o acelerado, contagiarás al grupo. Ralentiza tu caminar y mantén tu tono de voz pausado.
+2. **No recortes los cierres:** El error más común es acortar el círculo de reflexión final o la meditación para cumplir con el horario. Es preferible reducir la duración de la dinámica principal o simplificar la introducción teórica.
+3. **Fusión Inteligente de Dinámicas:** Si tienes poco tiempo en la tarde, integra un ejercicio somático corto de movimiento justo al inicio del taller introspectivo en lugar de hacerlos en bloques aislados.
+4. **Anuncio de Adaptabilidad:** Comunica de manera transparente: "Este espacio es orgánico y nos pide más permanencia hoy. Reajustaremos el bloque de la tarde para honrar el hermoso ritmo que hemos construido juntos". El grupo lo percibirá como maestría y flexibilidad profesional.`;
+      } else if (lowMessage.includes("cansad") || lowMessage.includes("sueño") || lowMessage.includes("baja energia") || lowMessage.includes("pesadez") || lowMessage.includes("fatiga") || lowMessage.includes("aburrido") || lowMessage.includes("desganados")) {
+        reply += `\n\n### Estrategias para Elevar la Energía del Grupo (Sueño o Pesadez):
+La baja de energía es típica después de las comidas (curva digestiva) o tras un bloque de alta carga mental.
+
+1. **Despertar Somático Vocal:** Pon a todos de pie en círculo. Pídeles inhalar elevando los hombros y exhalar dejándolos caer con un sonido liberador y sonoro: "¡HAAAA!". Repite esto tres veces para disolver el cortisol.
+2. **Caminata de Conexión Espacial:** Haz que caminen libremente por el salón cambiando de velocidad (del 1 al 10) y de dirección cada vez que toques la campana tibetana. Esto estimula el flujo sanguíneo de inmediato.
+3. **Estímulo Olfativo Rápido:** Utiliza una bruma o difusor de aceites esenciales cítricos (limón, naranja) o menta en la sala. Los aromas cítricos activan instantáneamente el sistema límbico y despejan la somnolencia.
+4. **Activación rítmica:** Pon una pista musical rítmica de percusión orgánica de fondo y pide sacudir el cuerpo (manos, piernas, cabeza) libremente durante 2 minutos antes de tomar asiento.`;
+      } else if (lowMessage.includes("inicio") || lowMessage.includes("bienvenida") || lowMessage.includes("rompehielos") || lowMessage.includes("presentar") || lowMessage.includes("presentacion") || lowMessage.includes("abrir") || lowMessage.includes("apertura") || lowMessage.includes("primer dia") || lowMessage.includes("comenzar")) {
+        reply += `\n\n### Dinámicas y Recomendaciones para la Apertura y Bienvenida (Primer Día):
+El inicio del retiro define las bases de la confianza del contenedor. La prioridad absoluta aquí es desarticular la ansiedad social y consagrar las reglas.
+
+1. **La Co-creación del Altar:** Pide a cada participante que traiga un objeto pequeño significativo o elija una flor. Al ingresar, lo colocarán en el altar circular del centro de la sala, materializando visualmente su aporte y compromiso con el contenedor sagrado.
+2. **Definición de Acuerdos del Contenedor:** Establece acuerdos claros en conjunto. No los llames "reglas", llámalos "Acuerdos de Presencia":
+   - **Confidencialidad absoluta:** Lo que se dice en el círculo, se queda en el círculo.
+   - **No-juicio:** Recibimos el sentir de los demás sin intentar dar consejos no pedidos o juzgar.
+   - **Desconexión Digital:** Depositar los teléfonos móviles en una cesta segura fuera del salón.
+3. **Círculo de Bienvenida Ceremonial (Dinámica Oficial):** Reúne al grupo en círculo, enciende una vela central y guíalos a compartir su nombre y cuál es el peso de la vida cotidiana que eligen soltar durante estos días. Sostén música ancestral de Danit o Poranguí de fondo.`;
+      } else if (lowMessage.includes("cierre") || lowMessage.includes("clausura") || lowMessage.includes("terminar") || lowMessage.includes("final") || lowMessage.includes("despedida") || lowMessage.includes("integracion") || lowMessage.includes("ultimo dia")) {
+        reply += `\n\n### Estructuración del Cierre, Clausura e Integración Final:
+El último bloque de un retiro es el umbral de retorno. Los participantes necesitan anclar sus vivencias emocionales para que la paz no se disuelva al llegar a casa.
+
+1. **La Dinámica del Mapa de Visión Intuitivo:** Bríndales cartulina kraft, revistas y tijeras. Pídeles plasmar de forma no verbal un collage con imágenes que representen sus compromisos innegociables de autocuidado. Esto activa el pensamiento simbólico protector de la mente.
+2. **Círculo de Palabra Sintética:** Reúne al grupo alrededor del altar por última vez. Cada participante toma el objeto de habla y comparte exactamente una palabra o frase corta que capture su transformación del retiro.
+3. **El Amuleto de Retorno:** Entrega a cada uno un pequeño recordatorio físico consagrado en el altar (una pequeña piedra de río pulida, una semilla, una pulsera de hilo natural) que sirva como anclaje táctil diario para regresar a su estado de paz en la rutina.
+4. **Abrazos de Gratitud:** Facilita un espacio libre donde puedan despedirse de manera física e integradora antes de partir, cerrando con un aplauso colectivo de celebración.`;
+      } else if (lowMessage.includes("musica") || lowMessage.includes("sonido") || lowMessage.includes("cancion") || lowMessage.includes("playlist") || lowMessage.includes("audio") || lowMessage.includes("cuenco") || lowMessage.includes("instrumental") || lowMessage.includes("reproducir")) {
+        reply += `\n\n### El Manejo Acústico y Uso de Música en Retiros:
+La música es un conductor vibracional directo hacia el cerebro límbico. Modula la química cerebral y la profundidad del grupo.
+
+1. **Control de Volúmenes por Actividad:**
+   - **Bloques de Alimentación:** Mantén la música a un volumen muy tenue de fondo (15-20%) para que no compita con el silencio o la conversación consciente.
+   - **Talleres Somáticos / Movimiento:** Puedes elevar progresivamente el volumen de percusiones orgánicas hasta un 50-55% para guiar la activación.
+   - **Meditación / Silencio:** Música ambiental de texturas de sonido sutil por debajo de un 25%.
+2. **Recomendaciones de Artistas y Playlists:**
+   - **Para Apertura y Círculos:** Danit, Poranguí, Shimshai (fomentan el sentido de pertenencia ancestral).
+   - **Para Movimiento / Yoga:** Liquid Bloom, Desert Dwellers (música electrónica orgánica de texturas profundas).
+   - **Para Silencio y Meditaciones:** Deuter, East Forest, cuencos de cuarzo o tibetanos.
+   - **Para Integración y Cenas:** Ludovico Einaudi, piano acústico minimalista, Yann Tiersen.
+3. **El Desvanecimiento Gradual:** Nunca detengas una pista de música abruptamente al finalizar una dinámica. Dedica 10-15 segundos a bajar el potenciómetro gradualmente hasta fundirse con el silencio natural.`;
+      } else if (lowMessage.includes("comida") || lowMessage.includes("alimentacion") || lowMessage.includes("almuerzo") || lowMessage.includes("cena") || lowMessage.includes("desayuno") || lowMessage.includes("nutricion") || lowMessage.includes("dietas") || lowMessage.includes("alergias")) {
+        reply += `\n\n### Directrices para la Alimentación Consciente en Retiros:
+El alimento físico es la medicina que sostiene la estabilidad del contenedor de retiro. Las digestiones pesadas saturan de sangre el estómago y reducen la claridad cerebral.
+
+1. **Menús de Alta Vitalidad:** Diseña menús basados en ingredientes orgánicos locales, ligeros, limpios y libres de toxinas. Prioriza vegetales de raíz horneados (para enraizamiento), caldos templados y cereales germinados. Evita azúcares procesados o carnes rojas de digestión lenta.
+2. **El Almuerzo de Silencio Sagrado (Práctica Clave):** Dedica al menos un almuerzo o desayuno del retiro a comer en absoluto silencio de forma guiada. Pide a los participantes masticar cada bocado al menos 30 veces para ralentizar la ingesta y despertar los sentidos gustativos.
+3. **Rigurosidad con Alergias y Restricciones:** Asegúrate de revisar detenidamente la lista de restricciones de salud. Por ejemplo, en el grupo actual, verifica proactivamente con cocina que Elena Martínez reciba platos libres de trazas de nueces debido a su alergia severa.
+4. **Infusiones de Integración:** Mantén una estación permanente de agua caliente con hojas de jengibre fresco, menta, manzanilla y limón para facilitar la asimilación digestiva continua.`;
+      } else if (lowMessage.includes("silencio") || lowMessage.includes("noble") || lowMessage.includes("no hablar") || lowMessage.includes("introspeccion")) {
+        reply += `\n\n### Prácticas de Silencio Consciente en el Contenedor:
+El silencio es el espacio fértil donde la mente suspende el compromiso social de dar respuestas premeditadas, permitiendo que surja el verdadero ser.
+
+1. **Introducción Progresiva:** No impongas 24 horas de silencio absoluto el primer día. Comienza con micro-silencios, como desayunar en silencio durante 30 minutos, y luego expande la práctica de forma progresiva.
+2. **El Gesto del Corazón:** Enseña un lenguaje gestual universal para comunicarse sin emitir sonidos: llevar la mano derecha al centro del pecho con una leve reverencia. Esto permite que los participantes validen su presencia mutuamente sin quebrar el silencio.
+3. **Diario de Flujo de Conciencia:** Suministra libretas de papel kraft desde el inicio. El silencio físico debe ser acompañado de la descarga escrita para evitar la saturación mental.
+4. **La Campana Tibetana como Guía:** Utiliza el tañido de la campana como única señal de inicio y cierre de los bloques de silencio, evitando dar explicaciones verbales innecesarias.`;
+      } else if (lowMessage.includes("lugar") || lowMessage.includes("locacion") || lowMessage.includes("hotel") || lowMessage.includes("instalaciones") || lowMessage.includes("habitaciones") || lowMessage.includes("naturaleza") || lowMessage.includes("clima")) {
+        reply += `\n\n### Directrices Logísticas de Locación y Espacios de Trabajo:
+El confort básico y la estética visual de la locación sustentan la sensación de contención emocional en la pirámide de necesidades del participante.
+
+1. **Climatización y Ventilación Activa:** Entrar a una sala fría o sofocante bloquea el sistema nervioso. Ventila el espacio 20 minutos antes de cada sesión grupal y utiliza calefacción o mantas finas de lana si el clima desciende.
+2. **La Geometría Sagrada de la Sala:** Dispone siempre los cojines y tapetes en un círculo perfecto alrededor de un altar central. Evita filas o estructuras lineales de estilo escolar que inhiben la equidad del grupo.
+3. **Espacios Seguros Alternos:** Identifica un rincón arbolado con sombra o una sala privada pequeña de la locación para poder retirar con calma a un participante si requiere una sesión de contención personal fuera del salón principal.
+4. **Inmersión en la Naturaleza:** Aprovecha el entorno. Si el retiro es en la naturaleza, programa la 'Caminata Consciente de Enraizamiento' en el bosque para descargar el exceso de ondas electromagnéticas del grupo.`;
+      } else if (lowMessage.includes("conflicto") || lowMessage.includes("tension") || lowMessage.includes("pelea") || lowMessage.includes("discusion") || lowMessage.includes("dos personas") || lowMessage.includes("molesto")) {
+        reply += `\n\n### Resolución de Conflictos y Tensión Grupal en Sala:
+En los círculos íntimos de sanación, las incomodidades hacia otros participantes son proyecciones de heridas emocionales personales de la infancia.
+
+1. **Haz de la tensión una medicina consciente:** No evites la fricción. Abórdala desde un lugar de compasión: "En este espacio sagrado, las personas que nos causan incomodidad son nuestros espejos más valiosos para notar qué herida nos está pidiendo atención".
+2. **La Mediación Somática Silenciosa:** Si dos participantes tienen un conflicto explícito, siéntalos frente a frente en privado. Pídeles mirarse a los ojos durante un minuto entero en absoluto silencio y respirar al unísono antes de expresar cualquier palabra. Esto desactiva el mecanismo de ataque-defensa de la amígdala cerebral.
+3. **Redirección No-Verbal:** Si la tensión flota en la sala de forma grupal, pon música rítmica de percusión baja y realiza una dinámica somática de liberación corporal o sacudimiento para disipar físicamente el campo energético de estrés del salón.`;
       } else {
-        reply += `\n\nMe preguntas: "${message}".
-Para apoyarte óptimamente, recuerda estos 3 pilares del Facilitador Retiro Studio:
-1. **El contenedor es sagrado:** Lo que ocurra dentro del salón está bien. No intentes corregir o "arreglar" los procesos emocionales; solo sostenlos con respiración, enraizamiento físico y presencia inquebrantable.
-2. **Las transiciones son la medicina:** No pases abruptamente de un taller mental a uno físico. Dedica siempre un minuto de silencio de transición antes de mover el grupo.
-3. **Habla desde tu vulnerabilidad:** Si sientes tensión en la sala, hazla consciente: 'Siento que el ambiente está expectante hoy, y eso es completamente bienvenido'.`;
+        reply += `\n\nMe preguntas sobre: "${message}".
+
+Como tu Asistente Mentor de Retiro Studio, para apoyarte en cualquier aspecto de la facilitación de retiros, recuerda los 3 Pilares del Facilitador Líder:
+1. **El Contenedor es Sagrado:** Todo lo que surja en la sala es bienvenido. No intentes "corregir" o "solucionar" el dolor o el llanto de inmediato; solo dale espacio seguro para ser sentido plenamente.
+2. **Las Transiciones son la Medicina Secreta:** Nunca pases abruptamente de un taller de alta estimulación mental a uno corporal. Dedica siempre de 2 a 3 minutos de silencio meditativo de transición antes de mover al grupo.
+3. **El Facilitador es un Espejo:** Si estás nervioso por la logística o la agenda, el grupo lo sentirá en tu respiración. Respira profundo con el abdomen antes de tomar el micrófono.`;
       }
 
-      return res.json({ reply, warning: "Respuesta del Asistente generada por el motor de contingencia al no estar configurada la clave API de Gemini." });
+      return res.json({ reply, warning: "Respuesta del Asistente generada por el motor de contingencia de Retiro Studio AI para garantizar el funcionamiento sin clave de API." });
     }
 
     const systemInstruction = `Actúas como un mentor experto y psicólogo transpersonal especializado en la facilitación de retiros de bienestar de alta calidad ("Retiro Studio AI").
@@ -858,7 +935,8 @@ app.post("/api/generate-dynamic", async (req, res) => {
       return res.status(400).json({ error: "Falta especificar el objetivo de la dinámica." });
     }
 
-    if (!apiKey) {
+    // Robust check for missing or placeholder API Keys
+    if (!apiKey || apiKey === "undefined" || apiKey.includes("MY_GEMINI_API_KEY")) {
       // High quality fallback dynamic
       const mockDynamic: any = {
         id: 'ai_' + Date.now(),
