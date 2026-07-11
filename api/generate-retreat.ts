@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { OFFICIAL_DYNAMICS } from "../src/data/dynamics";
+import { OFFICIAL_DYNAMICS } from "./_lib/dynamics.js";
 
 // Centralized Gemini model constant as requested
 const GEMINI_MODEL = "gemini-3.5-flash";
