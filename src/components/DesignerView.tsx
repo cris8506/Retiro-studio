@@ -95,16 +95,20 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
       const data = await response.json();
       clearInterval(interval);
 
-      if (response.ok && data.retreat) {
+      if (!response.ok) {
+        throw new Error(data.error || "La función de generación no está disponible en el servidor.");
+      }
+
+      if (data.retreat) {
         onSetNewRetreat(data.retreat);
         setActiveDayTab(1);
       } else {
-        alert(data.error || "No pudimos generar el retiro. Revisa la configuración de Gemini o inténtalo nuevamente.");
+        throw new Error("La respuesta generada no tenía el formato esperado.");
       }
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(interval);
       console.error(err);
-      alert("No pudimos generar el retiro. Revisa la configuración de Gemini o inténtalo nuevamente.");
+      alert(err.message || "No pudimos conectar con el servidor para la generación inteligente.");
     } finally {
       setIsGenerating(false);
     }
