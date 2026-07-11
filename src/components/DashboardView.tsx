@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle, Plus, Trash2, Calendar, Users, MapPin, 
-  Sparkles, Music, Star, Edit, Volume2, FileText, CheckSquare, Clock 
+  Sparkles, Music, Star, Edit, Volume2, FileText, CheckSquare, Clock,
+  ChevronDown, ChevronUp, Check, Compass
 } from 'lucide-react';
-import { Retreat, MusicTrack } from '../types';
+import { Retreat, MusicTrack, RetreatActivity } from '../types';
 
 interface DashboardViewProps {
   retreat: Retreat;
+  retreats: Retreat[];
+  onSelectRetreat: (retreat: Retreat) => void;
   onUpdateRetreat: (updated: Retreat) => void;
   onViewChange: (view: string) => void;
   onPlayTrack: (track: MusicTrack) => void;
@@ -16,6 +19,8 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   retreat,
+  retreats,
+  onSelectRetreat,
   onUpdateRetreat,
   onViewChange,
   onPlayTrack,
@@ -34,9 +39,117 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     'Cuencos de Cuarzo': true,
   });
 
+  // Day Selector state for Agenda
+  const [activeDayTab, setActiveDayTab] = useState<number>(1);
+  const [openActivityId, setOpenActivityId] = useState<string | null>(null);
+  
+  // Custom activity form state
+  const [showAddActivityForm, setShowAddActivityForm] = useState(false);
+  const [newActivity, setNewActivity] = useState<Partial<RetreatActivity>>({
+    time: '14:30 PM — 15:30 PM',
+    title: '',
+    duration: 60,
+    emotionalGoal: '',
+    dynamicName: '',
+    materials: [],
+    preparation: '',
+    script: '',
+    reflectionQuestions: [],
+    closing: '',
+    recommendedMusic: '',
+    transition: ''
+  });
+
+  const [materialsInput, setMaterialsInput] = useState('');
+  const [questionsInput, setQuestionsInput] = useState('');
+
+  // Find active day block safely, fallback if the tab index is out of bounds
+  const currentDayBlock = (retreat && retreat.agenda) 
+    ? (retreat.agenda.find(dayBlock => dayBlock.day === activeDayTab) || retreat.agenda[0])
+    : null;
+
+  // Add dynamic activity to live agenda
+  const handleAddCustomActivity = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newActivity.title || !newActivity.time) return;
+
+    const activityToAdd: RetreatActivity = {
+      id: 'act_user_' + Date.now(),
+      time: newActivity.time,
+      title: newActivity.title,
+      duration: Number(newActivity.duration) || 30,
+      emotionalGoal: newActivity.emotionalGoal || 'Alineación',
+      dynamicName: newActivity.dynamicName || newActivity.title,
+      isAiSuggested: false,
+      materials: materialsInput.split(',').map(m => m.trim()).filter(Boolean),
+      preparation: newActivity.preparation || 'Disponer el espacio cómodamente.',
+      script: newActivity.script || '',
+      reflectionQuestions: questionsInput.split(',').map(q => q.trim()).filter(Boolean),
+      closing: newActivity.closing || 'Respira hondo.',
+      recommendedMusic: newActivity.recommendedMusic || '',
+      transition: newActivity.transition || 'Cierra la sesión suavemente.'
+    };
+
+    // Find active day and update its activity array
+    const targetDay = currentDayBlock?.day || 1;
+    const updatedAgenda = (retreat.agenda || []).map(dayBlock => {
+      if (dayBlock.day === targetDay) {
+        return {
+          ...dayBlock,
+          activities: [...dayBlock.activities, activityToAdd]
+        };
+      }
+      return dayBlock;
+    });
+
+    onUpdateRetreat({
+      ...retreat,
+      agenda: updatedAgenda,
+      materialsList: Array.from(new Set([...(retreat.materialsList || []), ...activityToAdd.materials]))
+    });
+
+    // Reset Form
+    setNewActivity({
+      time: '14:30 PM — 15:30 PM',
+      title: '',
+      duration: 60,
+      emotionalGoal: '',
+      dynamicName: '',
+      materials: [],
+      preparation: '',
+      script: '',
+      reflectionQuestions: [],
+      closing: '',
+      recommendedMusic: '',
+      transition: ''
+    });
+    setMaterialsInput('');
+    setQuestionsInput('');
+    setShowAddActivityForm(false);
+  };
+
+  // Delete activity from the agenda
+  const handleDeleteActivity = (activityId: string) => {
+    const targetDay = currentDayBlock?.day || 1;
+    const updatedAgenda = (retreat.agenda || []).map(dayBlock => {
+      if (dayBlock.day === targetDay) {
+        return {
+          ...dayBlock,
+          activities: dayBlock.activities.filter(act => act.id !== activityId)
+        };
+      }
+      return dayBlock;
+    });
+
+    onUpdateRetreat({
+      ...retreat,
+      agenda: updatedAgenda
+    });
+  };
+
   // Calculate checklists completion percentage for the circular progress bar
-  const totalMaterials = retreat.materialsList.length;
-  const checkedCount = retreat.materialsList.filter(m => checkedMaterials[m]).length;
+  const totalMaterials = retreat?.materialsList?.length || 0;
+  const checkedCount = retreat?.materialsList?.filter(m => checkedMaterials[m]).length || 0;
   const progressPercent = totalMaterials > 0 ? Math.round((checkedCount / totalMaterials) * 100) : 0;
 
   // Toggle material
@@ -52,7 +165,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     e.preventDefault();
     if (!newMaterial.trim()) return;
     
-    const updatedMaterials = [...retreat.materialsList, newMaterial.trim()];
+    const updatedMaterials = [...(retreat.materialsList || []), newMaterial.trim()];
     onUpdateRetreat({
       ...retreat,
       materialsList: updatedMaterials
@@ -62,7 +175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Delete material
   const handleDeleteMaterial = (index: number) => {
-    const updatedMaterials = retreat.materialsList.filter((_, i) => i !== index);
+    const updatedMaterials = (retreat.materialsList || []).filter((_, i) => i !== index);
     onUpdateRetreat({
       ...retreat,
       materialsList: updatedMaterials
@@ -76,7 +189,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     const prefix = noteTag === 'IMPORTANTE' ? '🔴 [IMPORTANTE] ' : noteTag === 'LOGÍSTICA' ? '⚙️ [LOGÍSTICA] ' : '📝 ';
     const formattedNote = `${prefix}${newNote.trim()}`;
-    const updatedNotes = [...retreat.notes, formattedNote];
+    const updatedNotes = [...(retreat.notes || []), formattedNote];
     
     onUpdateRetreat({
       ...retreat,
@@ -87,7 +200,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Delete note
   const handleDeleteNote = (index: number) => {
-    const updatedNotes = retreat.notes.filter((_, i) => i !== index);
+    const updatedNotes = (retreat.notes || []).filter((_, i) => i !== index);
     onUpdateRetreat({
       ...retreat,
       notes: updatedNotes
@@ -96,21 +209,64 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div id="dashboard-view-root" className="space-y-8 animate-fade-in">
+      
+      {/* Selector de Retiro Activo */}
+      <div id="retreat-selector-bar" className="bg-white rounded-2xl border border-gray-100 p-4.5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="p-2.5 bg-[#154539]/10 rounded-xl text-[#154539] flex items-center justify-center">
+            <Compass className="w-5 h-5 animate-spin-slow" />
+          </div>
+          <div className="text-left">
+            <h4 className="font-serif text-sm font-bold text-[#154539]">Tus Retiros Guardados</h4>
+            <p className="text-[11px] text-gray-500 font-light">Selecciona el retiro activo para visualizar su agenda y logística.</p>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={retreat?.id || ''}
+            onChange={(e) => {
+              const selected = retreats.find(r => r.id === e.target.value);
+              if (selected) {
+                onSelectRetreat(selected);
+                setActiveDayTab(1); // reset active day tab to 1
+              }
+            }}
+            className="bg-[#F7F4EC] text-xs font-semibold text-[#154539] border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-1 focus:ring-[#154539] focus:outline-none min-w-[200px]"
+          >
+            {retreats.map(r => (
+              <option key={r.id} value={r.id}>{r.name || 'Sin Nombre'}</option>
+            ))}
+            {retreats.length === 0 && (
+              <option value="">No hay retiros creados</option>
+            )}
+          </select>
+
+          <button
+            onClick={() => onViewChange('designer')}
+            className="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08b47] text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nuevo Retiro</span>
+          </button>
+        </div>
+      </div>
+
       {/* Welcome Hero Panel */}
       <div id="dashboard-hero" className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#154539] to-[#0f342b] p-8 text-white shadow-xl">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 opacity-10">
           <Sparkles className="w-96 h-96" />
         </div>
         
-        <div className="relative z-10 max-w-3xl">
+        <div className="relative z-10 max-w-3xl text-left">
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#C5A059] text-white uppercase tracking-wider mb-4">
             Consola del Facilitador
           </span>
           <h2 id="hero-retreat-name" className="font-serif text-3xl md:text-4xl font-bold tracking-tight mb-2">
-            {retreat.name}
+            {retreat?.name || "Crea tu primer retiro"}
           </h2>
           <p id="hero-retreat-desc" className="text-sm text-[#cbdad5] font-light max-w-2xl leading-relaxed mb-6">
-            {retreat.description}
+            {retreat?.description || "Inicia tu camino de facilitador diseñando una experiencia inmersiva única."}
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#1b5346]">
@@ -118,28 +274,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Calendar className="w-5 h-5 text-[#C5A059] flex-shrink-0" />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">Duración</p>
-                <p className="text-sm font-semibold text-white">{retreat.duration} días</p>
+                <p className="text-sm font-semibold text-white">{retreat?.duration || 0} días</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <Users className="w-5 h-5 text-[#C5A059] flex-shrink-0" />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">Participantes</p>
-                <p className="text-sm font-semibold text-white">{retreat.participantsCount} personas ({retreat.participantsAge})</p>
+                <p className="text-sm font-semibold text-white">{retreat?.participantsCount || 0} personas ({retreat?.participantsAge || "N/A"})</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <MapPin className="w-5 h-5 text-[#C5A059] flex-shrink-0" />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">Espacio</p>
-                <p className="text-sm font-semibold text-white truncate max-w-[130px]">{retreat.locationType}</p>
+                <p className="text-sm font-semibold text-white truncate max-w-[130px]">{retreat?.locationType || "N/A"}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <Star className="w-5 h-5 text-[#C5A059] flex-shrink-0" />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">Energía Core</p>
-                <p className="text-sm font-semibold text-white truncate max-w-[130px]">{retreat.desiredEnergy}</p>
+                <p className="text-sm font-semibold text-white truncate max-w-[130px]">{retreat?.desiredEnergy || "N/A"}</p>
               </div>
             </div>
           </div>
@@ -149,116 +305,346 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Main Grid: Left Timeline + Info, Right Side panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Day 1 Timeline Block (Left Column, spans 2) */}
+        {/* Day-by-Day Agenda Block */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
-              <div>
-                <h3 className="font-serif text-xl font-bold text-[#154539]">Cronograma del Día 1</h3>
-                <p className="text-xs text-gray-500 mt-1">Estructura del primer bloque del contenedor transformacional.</p>
+          
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+              <div className="text-left">
+                <h3 className="font-serif text-xl font-bold text-[#154539]">Cronograma Detallado del Retiro</h3>
+                <p className="text-xs text-gray-500 mt-1">Explora cada actividad del cronograma y añade guiones personalizados.</p>
               </div>
-              <button 
-                onClick={() => onViewChange('designer')}
-                className="inline-flex items-center text-xs font-semibold text-[#154539] hover:text-[#C5A059] transition-colors"
-              >
-                <span>Ver agenda completa</span>
-                <Plus className="w-4 h-4 ml-1" />
-              </button>
+              
+              {/* Day Selector Tabs inside the card */}
+              {retreat?.agenda && retreat.agenda.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {retreat.agenda.map((dayBlock) => (
+                    <button
+                      key={dayBlock.day}
+                      onClick={() => {
+                        setActiveDayTab(dayBlock.day);
+                        setOpenActivityId(null);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        (currentDayBlock?.day || 1) === dayBlock.day
+                          ? 'bg-[#154539] text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Día {dayBlock.day}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Vertical timeline */}
-            <div className="relative pl-6 border-l-2 border-gray-100 space-y-8 ml-3">
-              {retreat.agenda?.[0]?.activities.map((activity, index) => {
-                return (
-                  <div key={activity.id || index} className="relative group">
-                    {/* Circle Dot */}
-                    <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-white border-2 border-[#154539] flex items-center justify-center transition-all group-hover:scale-125">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />
-                    </div>
+            {/* Day Focus Header Banner */}
+            {currentDayBlock && (
+              <div className="p-4.5 bg-[#154539]/5 border-l-4 border-[#C5A059] rounded-r-xl text-left">
+                <span className="text-[9px] uppercase tracking-wider text-[#154539] font-bold block">Foco de la Jornada</span>
+                <h3 className="font-serif text-base font-bold text-[#154539] mt-0.5">{currentDayBlock.focus}</h3>
+              </div>
+            )}
 
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 bg-[#F7F4EC]/40 hover:bg-[#F7F4EC]/80 rounded-xl p-4 transition-colors">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="inline-flex items-center text-xs font-semibold font-mono text-[#C5A059]">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {activity.time}
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">
-                            {activity.duration} min
-                          </span>
+            {/* Activities Vertical list (Timeline Accordion format) */}
+            <div className="space-y-4 text-left">
+              {currentDayBlock?.activities.map((activity, index) => {
+                const isOpen = openActivityId === activity.id;
+                return (
+                  <div 
+                    key={activity.id || index} 
+                    className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow transition-all"
+                  >
+                    {/* Accordion Header */}
+                    <div 
+                      onClick={() => setOpenActivityId(isOpen ? null : activity.id)}
+                      className="p-4 md:p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50/40 transition-colors"
+                    >
+                      <div className="space-y-1 max-w-[80%]">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="font-mono text-xs font-bold text-[#C5A059]">{activity.time}</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">{activity.duration} min</span>
                           {activity.isAiSuggested && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#154539] text-[#C5A059] flex items-center font-semibold">
-                              <Sparkles className="w-2.5 h-2.5 mr-0.5" /> IA
+                            <span className="text-[9px] px-2 py-0.5 bg-[#C5A059]/10 text-[#C5A059] rounded flex items-center font-bold">
+                              IA
                             </span>
                           )}
                         </div>
-                        <h4 className="font-serif text-lg font-bold text-gray-900">{activity.title}</h4>
-                        <p className="text-xs text-gray-600 font-light leading-relaxed">
-                          <strong className="text-gray-800 font-medium">Enfoque:</strong> {activity.emotionalGoal}
-                        </p>
-                        {activity.recommendedMusic && (
-                          <div className="flex items-center space-x-1.5 text-[11px] text-[#3c6755] mt-2 bg-[#154539]/5 inline-flex px-2 py-1 rounded">
-                            <Music className="w-3 h-3" />
-                            <span>Música: {activity.recommendedMusic}</span>
-                          </div>
-                        )}
+                        <h4 className="font-serif text-base md:text-lg font-bold text-[#154539]">{activity.title}</h4>
+                        <p className="text-xs text-gray-600 font-light truncate">{activity.emotionalGoal}</p>
                       </div>
-                      <div className="flex items-center space-x-2 mt-2 md:mt-0">
-                        <button 
-                          onClick={() => onViewChange('designer')}
-                          className="px-3 py-1.5 rounded bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 border border-gray-200 transition-colors"
+                      <div className="flex items-center space-x-3 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteActivity(activity.id);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                          title="Eliminar actividad"
                         >
-                          Guion & Detalles
+                          <Trash2 className="w-4 h-4" />
                         </button>
+                        <div>
+                          {isOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Accordion Content Details */}
+                    {isOpen && (
+                      <div className="border-t border-gray-100 bg-[#F7F4EC]/10 p-5 space-y-6">
+                        
+                        {/* Inner metadata grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white p-3.5 rounded-lg border border-gray-100">
+                            <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Objetivo Emocional</h5>
+                            <p className="text-xs text-gray-700 font-light mt-1">{activity.emotionalGoal}</p>
+                          </div>
+                          <div className="bg-white p-3.5 rounded-lg border border-gray-100">
+                            <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Música Sugerida</h5>
+                            <p className="text-xs text-gray-700 font-light mt-1 flex items-center">
+                              <Music className="w-3.5 h-3.5 mr-1 text-[#154539]" />
+                              {activity.recommendedMusic || 'Ambiente natural en silencio'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Preparation Block */}
+                        <div className="space-y-1.5">
+                          <h5 className="text-[11px] uppercase tracking-wider text-[#154539] font-bold">Preparación del Facilitador</h5>
+                          <p className="text-xs text-gray-700 bg-white p-3 rounded-lg border border-gray-100 font-light leading-relaxed">
+                            {activity.preparation}
+                          </p>
+                        </div>
+
+                        {/* Script Block (The First Person script highlighted in beautiful italic) */}
+                        {activity.script && (
+                          <div className="p-4 bg-[#154539] text-white rounded-xl space-y-2 border border-[#1b5346]">
+                            <h5 className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold flex items-center">
+                              <FileText className="w-3.5 h-3.5 mr-1" />
+                              Guion Sugerido (En Primera Persona)
+                            </h5>
+                            <p className="font-serif text-sm italic font-light leading-relaxed pl-3 border-l-2 border-[#C5A059]">
+                              "{activity.script}"
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Reflection Questions */}
+                        {activity.reflectionQuestions && activity.reflectionQuestions.length > 0 && (
+                          <div className="space-y-1.5">
+                            <h5 className="text-[11px] uppercase tracking-wider text-[#154539] font-bold">Preguntas de Indagación y Reflexión</h5>
+                            <ul className="list-disc list-inside space-y-1 bg-white p-3.5 rounded-lg border border-gray-100">
+                              {activity.reflectionQuestions.map((q, qIdx) => (
+                                <li key={qIdx} className="text-xs text-gray-700 font-light">{q}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Materials, Closing, Transition */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
+                            <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Materiales</h5>
+                            <p className="text-xs text-gray-700 font-light">{activity.materials?.join(', ') || 'Ninguno'}</p>
+                          </div>
+                          <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
+                            <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Cierre</h5>
+                            <p className="text-xs text-gray-700 font-light">{activity.closing}</p>
+                          </div>
+                          <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
+                            <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Transición</h5>
+                            <p className="text-xs text-gray-700 font-light">{activity.transition}</p>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
                   </div>
                 );
               })}
+
+              {(!currentDayBlock || !currentDayBlock.activities || currentDayBlock.activities.length === 0) && (
+                <div className="text-center bg-white py-12 rounded-xl border border-gray-100 text-gray-400 font-light">
+                  No hay actividades programadas en este día. ¡Crea una nueva a continuación!
+                </div>
+              )}
+
+              {/* Button to open add activity form */}
+              {!showAddActivityForm ? (
+                <button
+                  onClick={() => setShowAddActivityForm(true)}
+                  className="w-full py-4 border-2 border-dashed border-[#154539]/20 hover:border-[#154539]/50 text-[#154539] hover:text-[#C5A059] rounded-xl text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center space-x-2 bg-white hover:bg-white/80 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Añadir actividad manual</span>
+                </button>
+              ) : (
+                <form onSubmit={handleAddCustomActivity} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4 animate-fade-in text-left">
+                  <h4 className="font-serif text-base font-bold text-[#154539] border-b border-gray-100 pb-2">Añadir Actividad a la Agenda</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Nombre de la Actividad</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej: Meditación de Sonido Sagrado"
+                        value={newActivity.title}
+                        onChange={e => setNewActivity({...newActivity, title: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Horario / Rango de Hora</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej: 04:30 PM — 05:30 PM"
+                        value={newActivity.time}
+                        onChange={e => setNewActivity({...newActivity, time: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Duración (minutos)</label>
+                      <input
+                        type="number"
+                        value={newActivity.duration}
+                        onChange={e => setNewActivity({...newActivity, duration: Number(e.target.value)})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Objetivo Emocional</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Integrar emociones, asentar la vivencia"
+                        value={newActivity.emotionalGoal}
+                        onChange={e => setNewActivity({...newActivity, emotionalGoal: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Preparación del Facilitador</label>
+                      <textarea
+                        placeholder="Ej: Disponer cojines en círculo cerrado y encender sahumerios."
+                        value={newActivity.preparation}
+                        onChange={e => setNewActivity({...newActivity, preparation: e.target.value})}
+                        rows={2}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Guion Sugerido (Primera Persona)</label>
+                      <textarea
+                        placeholder="Ej: 'Respiren profundamente. Dejen que el sonido del gong limpie los pensamientos...'"
+                        value={newActivity.script}
+                        onChange={e => setNewActivity({...newActivity, script: e.target.value})}
+                        rows={2}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Materiales (separados por coma)</label>
+                      <input
+                        type="text"
+                        placeholder="Gong, cojines, brumas"
+                        value={materialsInput}
+                        onChange={e => setMaterialsInput(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Preguntas de Reflexión (separadas por coma)</label>
+                      <input
+                        type="text"
+                        placeholder="¿Qué resonó en ti?, ¿Qué vibró?"
+                        value={questionsInput}
+                        onChange={e => setQuestionsInput(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Música Sugerida</label>
+                      <input
+                        type="text"
+                        placeholder="Música ambiental suave"
+                        value={newActivity.recommendedMusic || ''}
+                        onChange={e => setNewActivity({...newActivity, recommendedMusic: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Transición</label>
+                      <input
+                        type="text"
+                        placeholder="Caminata silenciosa"
+                        value={newActivity.transition || ''}
+                        onChange={e => setNewActivity({...newActivity, transition: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end space-x-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddActivityForm(false)}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Añadir a la agenda</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
             {/* Quick Tips Box */}
-            <div className="mt-8 p-4 bg-[#154539]/5 border border-[#154539]/10 rounded-xl flex items-start space-x-3">
+            <div className="p-4 bg-[#154539]/5 border border-[#154539]/10 rounded-xl flex items-start space-x-3 text-left">
               <Sparkles className="w-5 h-5 text-[#C5A059] flex-shrink-0 mt-0.5" />
               <div>
                 <h5 className="text-xs font-bold text-[#154539] uppercase tracking-wider">Tip de Facilitación Inteligente</h5>
                 <p className="text-xs text-gray-700 font-light mt-1 leading-relaxed">
-                  Dado que buscas canalizar una energía <strong className="text-[#154539] font-semibold">"{retreat.desiredEnergy}"</strong> en un entorno de <strong className="text-[#154539] font-semibold">{retreat.locationType}</strong>, te sugiero ralentizar las transiciones un 20%. Permite de 2 a 3 minutos de silencio antes de cambiar de bloque para que asienten la experiencia.
+                  Dado que buscas canalizar una energía <strong className="text-[#154539] font-semibold">"{retreat?.desiredEnergy || "Serena"}"</strong> en un entorno de <strong className="text-[#154539] font-semibold">{retreat?.locationType || "Naturaleza"}</strong>, te sugiero ralentizar las transiciones un 20%. Permite de 2 a 3 minutos de silencio antes de cambiar de bloque para que asienten la experiencia.
                 </p>
-                <button 
-                  onClick={() => onViewChange('assistant')}
-                  className="text-[11px] font-bold text-[#C5A059] hover:underline mt-2 inline-block"
-                >
-                  Consultar al Mentor IA sobre contingencias →
-                </button>
+
               </div>
             </div>
 
           </div>
 
           {/* Quick Participants Block */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <h3 className="font-serif text-xl font-bold text-[#154539] mb-4 flex items-center">
-              <Users className="w-5 h-5 mr-2 text-[#C5A059]" />
-              Fichas de Participantes Críticos
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {retreat.participantsList.map((p, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif text-sm font-bold text-gray-900">{p.name}</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] font-semibold">Dietética</span>
+          {retreat?.participantsList && retreat.participantsList.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-left">
+              <h3 className="font-serif text-xl font-bold text-[#154539] mb-4 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-[#C5A059]" />
+                Fichas de Participantes Críticos
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {retreat.participantsList.map((p, idx) => (
+                  <div key={idx} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-serif text-sm font-bold text-gray-900">{p.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] font-semibold">Dietética</span>
+                    </div>
+                    <p className="text-xs text-gray-600 font-light">
+                      <strong className="text-gray-800 font-medium">Régimen:</strong> {p.dietary}
+                    </p>
+                    <p className="text-xs text-gray-600 font-light">
+                      <strong className="text-gray-800 font-medium">Requerimientos:</strong> {p.restrictions}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 font-light">
-                    <strong className="text-gray-800 font-medium">Régimen:</strong> {p.dietary}
-                  </p>
-                  <p className="text-xs text-gray-600 font-light">
-                    <strong className="text-gray-800 font-medium">Requerimientos:</strong> {p.restrictions}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Side Column Panels (Checklists, Progress, Notes) */}
@@ -266,9 +652,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           
           {/* Circular Progress Panel */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-center flex flex-col items-center">
-            <h3 className="font-serif text-lg font-bold text-[#154539] mb-4">Progreso del Logística</h3>
+            <h3 className="font-serif text-lg font-bold text-[#154539] mb-4">Progreso de Logística</h3>
             
-            {/* Beautiful SVG circle chart */}
+            {/* SVG circle chart */}
             <div className="relative w-32 h-32 mb-4">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
@@ -300,7 +686,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Interactive Checklist of Materials */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-left">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-serif text-lg font-bold text-[#154539] flex items-center">
                 <CheckSquare className="w-5 h-5 mr-2 text-[#C5A059]" />
@@ -318,14 +704,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               />
               <button
                 type="submit"
-                className="p-1.5 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg transition-colors flex items-center justify-center"
+                className="p-1.5 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
               </button>
             </form>
 
             <ul className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {retreat.materialsList.map((material, idx) => {
+              {retreat?.materialsList?.map((material, idx) => {
                 const isChecked = !!checkedMaterials[material];
                 return (
                   <li 
@@ -358,7 +744,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </li>
                 );
               })}
-              {retreat.materialsList.length === 0 && (
+              {(!retreat?.materialsList || retreat.materialsList.length === 0) && (
                 <div className="text-center py-6 text-xs text-gray-400 font-light">
                   No hay materiales registrados.
                 </div>
@@ -367,7 +753,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Facilitation Bullet Notes Block */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-left">
             <h3 className="font-serif text-lg font-bold text-[#154539] mb-3 flex items-center">
               <FileText className="w-5 h-5 mr-2 text-[#C5A059]" />
               Notas de Facilitación
@@ -401,7 +787,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <button
                   type="submit"
-                  className="px-2.5 py-1 bg-[#C5A059] hover:bg-[#b08b47] text-white rounded text-[10px] font-semibold flex items-center transition-colors"
+                  className="px-2.5 py-1 bg-[#C5A059] hover:bg-[#b08b47] text-white rounded text-[10px] font-semibold flex items-center transition-colors cursor-pointer"
                 >
                   Agregar
                 </button>
@@ -409,7 +795,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </form>
 
             <ul className="space-y-3 max-h-60 overflow-y-auto pr-1">
-              {retreat.notes.map((note, idx) => {
+              {retreat?.notes?.map((note, idx) => {
                 const isImportant = note.includes('[IMPORTANTE]');
                 const isLogistical = note.includes('[LOGÍSTICA]');
                 
@@ -448,7 +834,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </li>
                 );
               })}
-              {retreat.notes.length === 0 && (
+              {(!retreat?.notes || retreat.notes.length === 0) && (
                 <div className="text-center py-6 text-xs text-gray-400 font-light">
                   No hay notas de facilitación aún.
                 </div>

@@ -405,77 +405,7 @@ export const DynamicsView: React.FC<DynamicsViewProps> = ({
         )}
       </div>
 
-      {/* Bottom AI Dynamic Generator section */}
-      <div className="bg-gradient-to-r from-[#154539] to-[#0f342b] p-6 md:p-8 rounded-2xl text-white shadow-lg space-y-6">
-        <div className="flex items-start space-x-3 border-b border-[#1b5346] pb-4">
-          <Sparkles className="w-6 h-6 text-[#C5A059] flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-serif text-lg md:text-xl font-bold">¿Necesitas una dinámica a medida?</h3>
-            <p className="text-xs text-[#cbdad5] font-light mt-0.5">
-              Describe qué objetivo de integración, liberación o movimiento deseas, y la IA de Retiro Studio diseñará un ejercicio alineado con tu grupo.
-            </p>
-          </div>
-        </div>
 
-        <form onSubmit={handleAiGenerateDynamic} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Objetivo Específico</label>
-              <input
-                type="text"
-                placeholder="Ej: Integrar la tristeza tras una catarsis emocional de fuego..."
-                required
-                value={aiObjective}
-                onChange={e => setAiObjective(e.target.value)}
-                className="w-full bg-[#123e33] border border-[#1d594b] rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-400 focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Categoría</label>
-              <select
-                value={aiCategory}
-                onChange={e => setAiCategory(e.target.value)}
-                className="w-full bg-[#123e33] border border-[#1d594b] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
-              >
-                <option>Meditación</option>
-                <option>Icebreaker</option>
-                <option>Creatividad</option>
-                <option>Silencio</option>
-                <option>Cuerpo</option>
-                <option>Liberación</option>
-                <option>Integración</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Intensidad Emocional</label>
-              <select
-                value={aiIntensity}
-                onChange={e => setAiIntensity(e.target.value)}
-                className="w-full bg-[#123e33] border border-[#1d594b] rounded-xl px-4 py-2.5 text-xs text-[#C5A059] focus:outline-none font-bold"
-              >
-                <option>Baja</option>
-                <option>Media</option>
-                <option>Alta</option>
-              </select>
-            </div>
-
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={isGenerating}
-              className="px-6 py-3 bg-[#C5A059] hover:bg-[#b08b47] text-white rounded-xl text-xs font-bold tracking-wider uppercase shadow-md flex items-center space-x-2 transition-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{isGenerating ? 'Diseñando dinámica...' : 'Diseñar con IA'}</span>
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* AI Generated Dynamic Pop-up Modal */}
       {isModalOpen && generatedDynamic && (

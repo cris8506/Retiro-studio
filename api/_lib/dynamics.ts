@@ -191,7 +191,7 @@ export const OFFICIAL_DYNAMICS: Dynamic[] = [
     materials: ['Hojas de papel reciclado', 'Bolígrafos', 'Fogata exterior o cuenco de metal refractario seguro en interior', 'Hierbas aromáticas (salvia, romero).'],
     preparation: 'Preparar la hoguera exterior con antelación o colocar el contenedor metálico interior rodeado de velas. Tener agua o extintor cerca.',
     steps: [
-      'Reunir al grupo de pie o sentados alrededor del fuego. Entregar papel y bolígrafo a cada uno.',
+      'Reunir al grupo de pie o sentados alrededor del fuego. Entregar papel and bolígrafo a cada uno.',
       'Guiar una meditación invitando a escribir aquello que se siente listos para soltar (un patrón mental, un dolor, un miedo, un apego).',
       'De uno en uno, los participantes se acercan al fuego, ofrecen unas hierbas como ofrenda de gratitud y queman su papel en silencio.',
       'El facilitador sostiene el espacio tocando un tambor chamánico o entonando un canto suave.'
@@ -205,5 +205,110 @@ export const OFFICIAL_DYNAMICS: Dynamic[] = [
       'Si se hace en interiores y no es posible fuego físico, disolver las palabras escritas con tinta soluble en un cuenco con agua.',
       'Cerrar el ritual con una danza libre de celebración para anclar la ligereza.'
     ]
+  },
+  {
+    id: 'bano_bosque',
+    name: 'Baño de Bosque (Shinrin-Yoku)',
+    category: 'Meditación',
+    duration: 45,
+    intensity: 'Baja',
+    objective: 'Reconexión profunda con la naturaleza a través del despertar de todos los sentidos en un bosque.',
+    whenToUse: 'Durante el segundo día, ideal para rebajar el ritmo mental y asentar la paz.',
+    whenToAvoid: 'Clima lluvioso torrencial o frío extremo sin ropa térmica.',
+    materials: ['Ropa cómoda y abrigada.'],
+    preparation: 'Ubicar una zona boscosa segura y con bajo flujo de turistas.',
+    steps: [
+      'Iniciar respirando el olor del bosque con los ojos cerrados.',
+      'Tocar texturas de cortezas, hojas, rocas del entorno de manera intuitiva.',
+      'Caminar lentamente abriendo la visión periférica.',
+      'Compartir la experiencia grupal recostados sobre el sotobosque.'
+    ],
+    script: 'Permítete ser parte del bosque. Siente cómo el aire limpio entra a ti y cómo cada árbol sostiene el espacio en perfecto silencio.',
+    reflectionQuestions: ['¿Qué textura o aroma te trajo mayor quietud?', '¿Cómo te sientes al dejar de intentar controlar tu entorno?'],
+    variations: ['Hacerlo en silencio en un jardín amplio si no hay bosque.']
+  },
+  {
+    id: 'danza_primordial',
+    name: 'Danza Primordial Libre',
+    category: 'Cuerpo',
+    duration: 30,
+    intensity: 'Alta',
+    objective: 'Desinhibición y catarsis corporal a través del movimiento libre sin juicios.',
+    whenToUse: 'Tarde del segundo día para disolver tensiones pesadas de la introspección.',
+    whenToAvoid: 'Grupos con alta resistencia física o dolor articular agudo.',
+    materials: ['Altavoz potente, lista de música de percusión orgánica.'],
+    preparation: 'Oscurecer un poco la sala. Disponer agua fresca.',
+    steps: [
+      'Comenzar con los ojos vendados o cerrados moviendo solo las articulaciones.',
+      'Aumentar la intensidad del ritmo musical guiando a sacudirse libremente.',
+      'Permitir que el cuerpo se mueva como lo necesite, sin coreografías.',
+      'Regresar al suelo en silencio absoluto para asentar el palpitar.'
+    ],
+    script: 'No hay pasos correctos ni incorrectos. Deja que tu cuerpo sea el que baile, no tu cabeza. Libera la energía contenida.',
+    reflectionQuestions: ['¿Qué juicio apareció al moverte libremente?', '¿En qué parte sentiste mayor liberación de carga?'],
+    variations: ['Usar antifaces para mayor privacidad individual.']
+  },
+  {
+    id: 'diario_gratitud',
+    name: 'Escritura Intuitiva y Gratitud',
+    category: 'Creatividad',
+    duration: 20,
+    intensity: 'Baja',
+    objective: 'Fomentar la auto-reflexión y el aprecio sincero de su historia de vida.',
+    whenToUse: 'Cierre del día o mañana temprano para sembrar una perspectiva positiva.',
+    whenToAvoid: 'Si el grupo tiene fatiga mental excesiva.',
+    materials: ['Libreta y bolígrafo por participante.'],
+    preparation: 'Música ambiental suave e iluminación cálida.',
+    steps: [
+      'Plantear tres preguntas detonadoras de gratitud.',
+      'Escribir sin levantar el bolígrafo del papel durante 10 minutos seguidos.',
+      'Subrayar las palabras clave que más resuenen en su escrito.',
+      'Compartir voluntariamente en parejas.'
+    ],
+    script: 'Escribe de corrido, deja que el flujo del corazón llegue al papel sin corregir la gramática ni frenar el impulso creativo.',
+    reflectionQuestions: ['¿Qué descubriste sobre ti al escribir sin censura?', '¿De qué te sientes profundamente agradecido hoy?'],
+    variations: ['Realizar dibujos abstractos en lugar de texto.']
+  },
+  {
+    id: 'rueda_palabra',
+    name: 'Rueda de Palabra Auténtica',
+    category: 'Integración',
+    duration: 40,
+    intensity: 'Media',
+    objective: 'Compartir sentires íntimos de forma segura, fomentando la escucha activa sin interrupción.',
+    whenToUse: 'Cierre de cada jornada para asimilar colectivamente el proceso vivido.',
+    whenToAvoid: 'Momentos en los que se requiera agilidad logística.',
+    materials: ['Un objeto de habla (piedra, pluma o cuarzo).'],
+    preparation: 'Disponer cojines en círculo cerrado alrededor del altar.',
+    steps: [
+      'Explicar que solo habla quien sostiene el objeto sagrado.',
+      'Nadie puede responder, aconsejar o juzgar lo que comparte el compañero.',
+      'Pasar el objeto de habla en el sentido de las agujas del reloj.',
+      'Cerrar el círculo con un agradecimiento grupal.'
+    ],
+    script: 'Este es tu contenedor de seguridad. Habla desde tu sentir real, no desde la teoría. Te sostenemos en presencia sagrada.',
+    reflectionQuestions: ['¿Qué se siente compartir tu verdad sabiendo que nadie te interrumpirá?', '¿Qué resonó en ti del compartir de tus compañeros?'],
+    variations: ['Hacer una ronda ultra-rápida de una sola palabra de sentir.']
+  },
+  {
+    id: 'respiracion_holotropica',
+    name: 'Respiración Circular Conectada',
+    category: 'Liberación',
+    duration: 50,
+    intensity: 'Alta',
+    objective: 'Acceder a estados ampliados de consciencia para liberar bloqueos psicosomáticos profundos.',
+    whenToUse: 'Día intermedio en el bloque principal introspectivo.',
+    whenToAvoid: 'Participantes embarazadas, con problemas cardiovasculares graves o epilepsia.',
+    materials: ['Esterillas cómodas, mantas, música épica progresiva.'],
+    preparation: 'Colocar parejas de apoyo donde uno cuida (facilita) y otro respira.',
+    steps: [
+      'Explicar la técnica de respiración circular (inhalación activa, exhalación pasiva y continua).',
+      'Tumbarse boca arriba en posición cómoda y abrigarse bien.',
+      'Sostener la respiración guiada de forma continua con apoyo musical dinámico.',
+      'Retornar suavemente bajando el ritmo y descansar 10 minutos.'
+    ],
+    script: 'Confía en la sabiduría sanadora de tu respiración. Deja que el aire circule sin pausas y disuelva cualquier coraza física.',
+    reflectionQuestions: ['¿Qué visiones o sensaciones corporales recuerdas?', '¿Cómo experimentas la ligereza tras la descarga?'],
+    variations: ['Reducir el tiempo a 15 minutos en intensidad media si es la primera vez del grupo.']
   }
 ];

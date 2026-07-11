@@ -18,6 +18,9 @@ export default function App() {
   // Toast notifications state
   const [notification, setNotification] = useState<string | null>(null);
 
+  // All retreats collection state
+  const [retreats, setRetreats] = useState<Retreat[]>([]);
+
   // Active retreat global state
   const [activeRetreat, setActiveRetreat] = useState<Retreat>({
     id: '',
@@ -52,13 +55,16 @@ export default function App() {
       try {
         const response = await fetch('/api/retreats');
         const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          // Find our pre-seeded retreat "despertar_sentidos"
-          const seeded = data.find(r => r.id === 'despertar_sentidos');
-          if (seeded) {
-            setActiveRetreat(seeded);
-          } else {
-            setActiveRetreat(data[0]);
+        if (Array.isArray(data)) {
+          setRetreats(data);
+          if (data.length > 0) {
+            // Find our pre-seeded retreat "despertar_sentidos"
+            const seeded = data.find(r => r.id === 'despertar_sentidos');
+            if (seeded) {
+              setActiveRetreat(seeded);
+            } else {
+              setActiveRetreat(data[0]);
+            }
           }
         }
       } catch (err) {
@@ -90,18 +96,30 @@ export default function App() {
 
   const handleUpdateRetreat = (updated: Retreat) => {
     setActiveRetreat(updated);
+    setRetreats(prev => prev.map(r => r.id === updated.id ? updated : r));
     // Keep it synced with backend memory
     if (updated.id) {
-      fetch(`/api/retreats/${updated.id}`, {
-        method: 'PATCH',
+      fetch('/api/retreats', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
-      }).catch(err => console.error("Error syncing retreat patch:", err));
+      }).catch(err => console.error("Error syncing retreat POST:", err));
     }
   };
 
   const handleSetNewRetreat = (newRetreat: Retreat) => {
     setActiveRetreat(newRetreat);
+    setRetreats(prev => {
+      const filtered = prev.filter(r => r.id !== newRetreat.id);
+      return [...filtered, newRetreat];
+    });
+    // Keep it synced with backend memory
+    fetch('/api/retreats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRetreat)
+    }).catch(err => console.error("Error saving new retreat POST:", err));
+
     setCurrentView('dashboard');
     handleShowNotification(`🌿 ¡Felicidades! "${newRetreat.name}" generado e importado al Dashboard.`);
   };
@@ -113,6 +131,8 @@ export default function App() {
         return (
           <DashboardView 
             retreat={activeRetreat}
+            retreats={retreats}
+            onSelectRetreat={setActiveRetreat}
             onUpdateRetreat={handleUpdateRetreat}
             onViewChange={setCurrentView}
             onPlayTrack={handlePlayTrack}

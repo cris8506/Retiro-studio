@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getAssistantFallbackReply } from "./_lib/generatorNoAi.js";
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 
@@ -19,6 +20,9 @@ const sampleRetreat = {
 };
 
 export default async function handler(req: any, res: any) {
+  // Ensure Content-Type is application/json
+  res.setHeader('Content-Type', 'application/json');
+
   // Accept only POST requests and reject other methods with 405 Method Not Allowed
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -29,103 +33,125 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  try {
-    const { message, currentRetreatId, chatHistory } = req.body;
+  const { message, currentRetreatId, chatHistory, forceNoAI } = req.body;
 
-    if (!message) {
-      return res.status(400).json({
-        success: false,
-        code: "INVALID_REQUEST",
-        error: "Falta el mensaje para el Asistente IA."
-      });
-    }
+  if (!message) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_REQUEST",
+      error: "Falta el mensaje para el Asistente."
+    });
+  }
 
-    // Look up retreat context (seed with sample if matches)
-    let retreatContext: any = null;
-    if (currentRetreatId === 'despertar_sentidos') {
-      retreatContext = sampleRetreat;
-    }
+  // Check if this matches one of the 8 predefined quick options
+  const msgNormalized = message.trim().toLowerCase().replace(/\.$/, '');
+  const quickOptionKeywords = [
+    "baja participación y el grupo está silencioso",
+    "grupo está completamente callado y cuesta que hablen",
+    "comenzó a llorar intensamente y necesita contención",
+    "baja energía, sueño o cansancio digestivo",
+    "conflicto grupal o tensión pasivo-agresiva",
+    "retraso en la agenda y desvío del horario",
+    "falta de materiales o suministros",
+    "poco tiempo disponible para completar"
+  ];
 
-    let contextString = "";
-    if (retreatContext) {
-      contextString = `CONTEXTO DEL RETIRO ACTUAL DEL FACILITADOR:
+  const isQuickOption = quickOptionKeywords.some(keyword => {
+    return msgNormalized.includes(keyword) || keyword.includes(msgNormalized);
+  });
+
+  // Force No-AI route if requested or if matched with one of the 8 quick options
+  if (forceNoAI || isQuickOption) {
+    console.log(`[api/assistant] Bypassing AI (forceNoAI: ${forceNoAI}, isQuickOption: ${isQuickOption})...`);
+    const reply = getAssistantFallbackReply(message);
+    return res.status(200).json({
+      reply,
+      isAiResponse: false
+    });
+  }
+
+  // Look up retreat context (seed with sample if matches)
+  let retreatContext: any = null;
+  if (currentRetreatId === 'despertar_sentidos') {
+    retreatContext = sampleRetreat;
+  }
+
+  let contextString = "";
+  if (retreatContext) {
+    contextString = `CONTEXTO DEL RETIRO ACTUAL DEL FACILITADOR:
 Nombre del Retiro: "${retreatContext.name}"
 Objetivo Principal: "${retreatContext.goal}"
 Duración: ${retreatContext.duration} días
 Energía Deseada: "${retreatContext.desiredEnergy}"
 Resultados Esperados: "${retreatContext.expectedResults}"
 Perfil de Participantes: "${retreatContext.participantsProfile}"`;
-    }
+  }
 
-    // Robust validation of GEMINI_API_KEY existence
-    const serverApiKey = process.env.GEMINI_API_KEY || "";
-    if (!serverApiKey || serverApiKey.trim() === "" || serverApiKey === "undefined" || serverApiKey.includes("MY_GEMINI_API_KEY")) {
-      console.warn("[api/assistant] GEMINI_API_KEY no configurada. Usando fallback estático.");
-      const lowMessage = message.toLowerCase();
-      let reply = "Hola. Como tu mentor experto de retiros, estoy aquí para guiarte en cada paso técnico, logístico y humano del proceso. ";
-      
-      if (lowMessage.includes("poca participación") || lowMessage.includes("participan") || lowMessage.includes("habla") || lowMessage.includes("callad") || lowMessage.includes("silencio") || lowMessage.includes("no quieren hablar")) {
-        reply += `\n\n### Intervención para Baja Participación en el Grupo:
-La resistencia a hablar suele nacer del miedo a la vulnerabilidad o falta de seguridad psicológica en el círculo.
+  // Robust validation of GEMINI_API_KEY existence
+  const serverApiKey = process.env.GEMINI_API_KEY || "";
+  if (!serverApiKey || serverApiKey.trim() === "" || serverApiKey === "undefined" || serverApiKey.includes("MY_GEMINI_API_KEY")) {
+    console.warn("[api/assistant] GEMINI_API_KEY no configurada. Usando motor de contingencia autónomo.");
+    const reply = getAssistantFallbackReply(message);
+    return res.status(200).json({
+      reply,
+      warning: "Respuesta del Asistente generada por el motor de contingencia de Retiro Studio debido a que no hay una clave de API configurada en el servidor.",
+      isAiResponse: false
+    });
+  }
 
-1. **No fuerces la palabra individual:** Si el grupo está callado, evita preguntar directamente a alguien. Rompe la tensión con un 'vaciado somático' rápido (sacudir las manos, estirarse o suspirar colectivamente).
-2. **Utiliza el Objeto de Habla:** Saca una piedra de río o cuarzo. Solo quien sostiene el objeto tiene la palabra, pero haz explícito que se permite sostenerlo en silencio durante un minuto si no desea hablar. Esto libera la presión social de inmediato.
-3. **Dinámicas en Parejas:** Divide al grupo en parejas para responder la consigna durante 3 minutos. Al dialogar en un micro-contenedor de dos personas, la timidez disminuye y, al volver al círculo grande, la disposición para compartir aumenta un 80%.
-4. **Preguntas Corporales Rápidas:** Haz preguntas cerradas que requieran respuesta física antes de abrir los micrófonos: "Alcen la mano los que hoy sintieron que su mente saboteaba el silencio". Esto activa la presencia visual grupal.`;
-      } else if (lowMessage.includes("afectado") || lowMessage.includes("llor") || lowMessage.includes("emocion") || lowMessage.includes("contencion") || lowMessage.includes("catarsis") || lowMessage.includes("crisis") || lowMessage.includes("angustia")) {
-        reply += `\n\n### Guía de Contención para Procesos Emocionales Intensos (Llanto o Catarsis):
-La catarsis es un síntoma de que el contenedor de retiro es lo suficientemente seguro para descargar el estrés postraumático o las memorias del dolor.
+  try {
+    const systemInstruction = `Actúas como el Mentor IA de Retiro Studio para facilitadores de retiros de bienestar. Tu objetivo es responder de manera breve, clara y útil, resolviendo rápidamente la duda del facilitador con la menor cantidad de texto posible.
 
-1. **Respeta la sacralidad de la emoción:** No corras inmediatamente a abrazar o dar pañuelos al participante que llora. Hacerlo de forma abrupta interrumpe la descarga del sistema nervioso y puede hacerlo sentir juzgado o expuesto. Sostiene una mirada de compasión y mantén tu respiración profunda.
-2. **Valida el proceso colectivamente:** Incluye al resto del grupo guiándolos a respirar juntos: "La medicina de uno es la medicina de todos. Vamos a tomar aire profundo juntos para sostener este espacio con amor".
-3. **Anclaje Físico Sutil:** Coloca suavemente una manta cálida sobre sus hombros o un cojín de apoyo. Si la intensidad es desbordante, pídele con voz suave que coloque las palmas de sus manos planas sobre el suelo para reconectarlo con la estabilidad física de la Tierra.
-4. **Acompañamiento Post-sesión:** Al finalizar la actividad, acércate en privado para validar su estado, asegurándole que todo lo liberado es parte de su sanación, y ofrécele un vaso de agua tibia con limón.`;
-      } else if (lowMessage.includes("tiempo") || lowMessage.includes("retraso") || lowMessage.includes("reprogram") || lowMessage.includes("agenda") || lowMessage.includes("tarde") || lowMessage.includes("retrasados")) {
-        reply += `\n\n### Gestión ante Falta de Tiempo o Desviaciones en la Agenda:
-En un retiro consciente, el tiempo debe estar al servicio de la transformación, y no al revés. Es normal y saludable que los bloques orgánicos requieran más permanencia.
+ESTILO DE RESPUESTA REQUERIDO:
+1. Responde siempre en español.
+2. Usa un lenguaje cercano, profesional y directo.
+3. NUNCA escribas introducciones largas, saludos ni despedidas.
+4. NUNCA repitas la pregunta o frase del usuario.
+5. NO uses frases motivacionales innecesarias ni teoría extensa.
+6. Evita párrafos largos. La respuesta debe tener normalmente entre 60 y 140 palabras.
+7. Solo puedes superar ese límite cuando exista una situación de seguridad física, emocional o una crisis extrema que requiera instrucciones detalladas.
+8. No hagas más de una pregunta de aclaración, y solo si es absolutamente indispensable.
+9. Prioriza acciones concretas aplicables de inmediato.
 
-1. **Mantén una vibración de paz:** Si tú como facilitador te muestras ansioso o acelerado, contagiarás al grupo. Ralentiza tu caminar y mantén tu tono de voz pausado.
-2. **No recortes los cierres:** El error más común es acortar el círculo de reflexión final o la meditación para cumplir con el horario. Es preferible reducir la duración de la dinámica principal o simplificar la introducción teórica.
-3. **Fusión Inteligente de Dinámicas:** Si tienes poco tiempo en la tarde, integra un ejercicio somático corto de movimiento justo al inicio del taller introspectivo en lugar de hacerlos en bloques aislados.
-4. **Anuncio de Adaptabilidad:** Comunica de manera transparente: "Este espacio es orgánico y nos pide más permanencia hoy. Reajustaremos el bloque de la tarde para honrar el hermoso ritmo que hemos construido juntos". El grupo lo percibirá como maestría y flexibilidad profesional.`;
-      } else if (lowMessage.includes("cansad") || lowMessage.includes("sueño") || lowMessage.includes("baja energia") || lowMessage.includes("pesadez") || lowMessage.includes("fatiga") || lowMessage.includes("aburrido") || lowMessage.includes("desganados")) {
-        reply += `\n\n### Estrategias para Elevar la Energía del Grupo (Sueño o Pesadez):
-La baja de energía es típica después de las comidas (curva digestiva) o tras un bloque de alta carga mental.
+ESTRUCTURA OBLIGATORIA DE RESPUESTA:
+Debes usar EXACTAMENTE este formato con las etiquetas exactas:
 
-1. **Despertar Somático Vocal:** Pon a todos de pie en círculo. Pídeles inhalar elevando los hombros y exhalar dejándolos caer con un sonido liberador y sonoro: "¡HAAAA!". Repite esto tres veces para disolver el cortisol.
-2. **Caminata de Conexión Espacial:** Haz que caminen libremente por el salón cambiando de velocidad (del 1 al 10) y de dirección cada vez que toques la campana tibetana. Esto es excelente para reactivar el flujo sanguíneo de inmediato.
-3. **Estímulo Olfativo Rápido:** Utiliza una bruma o difusor de aceites esenciales cítricos (limón, naranja) o menta en la sala. Los aromas cítricos activan instantáneamente el sistema límbico y despejan la somnolencia.
-4. **Activación rítmica:** Pon una pista musical rítmica de percusión orgánica de fondo y pide sacudir el cuerpo (manos, piernas, cabeza) libremente durante 2 minutos antes de tomar asiento.`;
-      } else {
-        reply += `\n\nMe preguntas sobre: "${message}".
+Acción inmediata:
+[Indica en una o dos frases qué debe hacer el facilitador ahora]
 
-Como tu Asistente Mentor de Retiro Studio, recuerda los 3 Pilares del Facilitador Líder:
-1. **El Contenedor es Sagrado:** Todo lo que surja en la sala es bienvenido. No intentes "corregir" o "solucionar" el dolor de inmediato; dale espacio seguro.
-2. **Las Transiciones son la Medicina Secreta:** Nunca pases abruptamente de un taller de alta estimulación mental a uno de relajación sin un puente transicional sutil.
-3. **El Facilitador es un Espejo:** Sostén tu propia presencia y respiración abdominal antes de dirigir al grupo.`;
-      }
+Qué evitar:
+[Menciona brevemente qué acción podría empeorar la situación]
 
-      return res.status(200).json({
-        reply,
-        warning: "Respuesta del Asistente generada por el motor de contingencia de Retiro Studio AI debido a que no hay una clave de API configurada en el servidor."
-      });
-    }
+Sugerencia:
+[Recomienda una dinámica, adaptación o intervención adecuada]
 
-    const systemInstruction = `Actúas como un mentor experto y psicólogo transpersonal especializado en la facilitación de retiros de bienestar de alta calidad ("Retiro Studio AI").
-Tu función es acompañar al facilitador con consejos prácticos, claros, compasivos y orientados a la acción.
-Debes responder en un tono profesional, inspirador, empático y estructurado. Tu lenguaje debe evocar serenidad y autoridad de facilitador experto con años de experiencia.
+Duración:
+[Indica el tiempo aproximado necesario]
 
-Aborda siempre las consultas comprendiendo:
-1. ¿Por qué ocurre la situación? (Dinámica oculta del grupo)
-2. ¿Qué necesita emocionalmente el grupo o el participante?
-3. ¿Cuál es la acción inmediata que debe tomar el facilitador paso a paso?
+REGLAS ESPECÍFICAS SEGÚN LA SITUACIÓN:
+- Grupo callado: Recomienda actividades suaves, evita dinámicas profundas al inicio, sugiere parejas o grupos pequeños.
+- Baja energía: Recomienda movimiento, respiración activa o cambio de espacio. Evita explicaciones teóricas largas o meditaciones pasivas.
+- Persona llorando/catarsis: Prioriza contención, privacidad y consentimiento. No diagnostiques, no obligues a compartir. Sugiere pausar o delegar el cuidado a un responsable.
+- Conflicto: Detén la actividad si es necesario, reduce la exposición pública. Escucha por separado antes de un diálogo grupal. No tomes partido.
+- Retraso en la agenda: Identifica qué reducir, reemplazar o eliminar. Protege apertura, descansos, integración y cierre.
+- Falta de tiempo: Recomienda versión corta de la dinámica manteniendo el objetivo principal; reduce instrucciones y rondas de palabra.
+- Falta de materiales: Propón alternativa sencilla con recursos disponibles, sin cambiar el objetivo principal.
 
-Al responder, utiliza un formato scannable y elegante, estructurando tus guías con viñetas, bloques destacados y pasos claros.
+SEGURIDAD CRÍTICA:
+No reemplaces atención médica ni psicológica. Si detectas riesgo de autolesión, violencia, desmayo, dificultad respiratoria, crisis intensa o peligro físico:
+1. Indica suspender de inmediato la actividad.
+2. Protege al grupo.
+3. Solicita apoyo profesional o servicios de emergencia.
+4. Prohibido continuar con una dinámica emocional.
 
+DATOS DE CONTEXTO DEL RETIRO (utilízalos internamente para personalizar la recomendación de forma sutil, NO los menciones explícitamente ni los repitas todos en tu respuesta):
 ${contextString}
 
-Historial de conversación reciente para contexto:
-${JSON.stringify(chatHistory || [])}`;
+CONSUMO DE TOKENS Y LÍMITES:
+- No envíes respuestas extensas.
+- No presentes más de dos alternativas.
+- No repitas instrucciones ni incluyas resúmenes finales.
+- Limita la respuesta a un máximo estricto de 220 tokens de salida, salvo casos de emergencia de seguridad física o emocional.`;
 
     const ai = new GoogleGenAI({
       apiKey: serverApiKey,
@@ -141,19 +167,25 @@ ${JSON.stringify(chatHistory || [])}`;
       contents: message,
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.7,
+        temperature: 0.6,
+        maxOutputTokens: 350,
       },
     });
 
-    return res.status(200).json({ reply: response.text });
+    return res.status(200).json({ 
+      reply: response.text,
+      isAiResponse: true
+    });
 
   } catch (err: any) {
-    console.error("[api/assistant] Error:", err);
-    return res.status(500).json({
-      success: false,
-      code: "INTERNAL_SERVER_ERROR",
-      error: "No se pudo consultar al Asistente IA. Por favor reintenta.",
-      details: err.message
+    console.error("[api/assistant] Error al llamar a Gemini. Activando fallback autónomo de contingencia...", err);
+    // Graceful fallback to avoid throwing a 500
+    const reply = getAssistantFallbackReply(message);
+    return res.status(200).json({
+      reply,
+      warning: "Gemini no está disponible en este momento. Se activó automáticamente el motor autónomo de contingencia de Retiro Studio.",
+      isAiResponse: false,
+      errorDetails: err.message
     });
   }
 }

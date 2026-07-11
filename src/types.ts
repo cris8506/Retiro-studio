@@ -45,6 +45,15 @@ export interface RetreatActivity {
   closing: string;
   recommendedMusic: string;
   transition: string;
+  // Compatibility properties for No-AI Generator
+  startTime?: string;
+  endTime?: string;
+  objective?: string;
+  durationMinutes?: number;
+  facilitatorGuide?: string;
+  musicRecommendation?: string;
+  phase?: string;
+  intensity?: string;
 }
 
 export interface RetreatDay {
@@ -71,7 +80,7 @@ export interface Retreat {
   experienceLevel: string;
   locationType: string;
   desiredEnergy: string;
-  expectedResults: string;
+  expectedResults: string | string[];
   description: string;
   idealProfile: string;
   agenda: RetreatDay[];
@@ -79,4 +88,7 @@ export interface Retreat {
   participantsList: Participant[];
   notes: string[];
   progress: number;
+  emotionalIntensity?: string;
+  participantRelationship?: string;
+  specialConsiderations?: string[];
 }

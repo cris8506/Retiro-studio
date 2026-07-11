@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, Calendar, Clock, Plus, Trash2, Edit2, Play, 
-  RotateCcw, Save, AlertCircle, FileText, Compass, ChevronDown, ChevronUp, Check, Music
+  Sparkles, Calendar, Clock, Compass, AlertCircle
 } from 'lucide-react';
-import { Retreat, RetreatActivity, RetreatDay } from '../types';
+import { Retreat } from '../types';
 
 interface DesignerViewProps {
   retreat: Retreat;
@@ -26,55 +25,86 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
     participantsAge: '30 - 50 años',
     participantsProfile: 'Coaches, profesionales estresados, líderes de bienestar',
     experienceLevel: 'Principiante a Intermedio',
-    locationType: 'Naturaleza (Interior/Exterior)',
-    desiredEnergy: 'Serena, introspectiva pero conectada',
-    expectedResults: 'Liberación de cortisol, técnicas corporales aprendidas, integración profunda'
+    locationType: 'mixto',
+    desiredEnergy: 'Serena y contemplativa',
+    emotionalIntensity: 'Moderada',
+    participantRelationship: 'No se conocen'
   });
 
-  const [activeDayTab, setActiveDayTab] = useState<number>(1);
+  const [expectedResults, setExpectedResults] = useState<string[]>(['Reconexión personal']);
+  const [otherResultText, setOtherResultText] = useState("");
+
+  const [specialConsiderations, setSpecialConsiderations] = useState<string[]>([]);
+  const [otherConsiderationText, setOtherConsiderationText] = useState("");
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationPhase, setGenerationPhase] = useState('');
-  const [openActivityId, setOpenActivityId] = useState<string | null>(null);
-  
-  // Custom activity form state
-  const [showAddActivityForm, setShowAddActivityForm] = useState(false);
-  const [newActivity, setNewActivity] = useState<Partial<RetreatActivity>>({
-    time: '14:30 PM — 15:30 PM',
-    title: '',
-    duration: 60,
-    emotionalGoal: '',
-    dynamicName: '',
-    materials: [],
-    preparation: '',
-    script: '',
-    reflectionQuestions: [],
-    closing: '',
-    recommendedMusic: '',
-    transition: ''
-  });
-
-  const [materialsInput, setMaterialsInput] = useState('');
-  const [questionsInput, setQuestionsInput] = useState('');
+  const [geminiError, setGeminiError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Handle generation call
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGenerate = async (e: React.FormEvent, useAIOverride?: boolean) => {
+    if (e) e.preventDefault();
     if (isGenerating) return; // Prevent duplicate execution
-    if (!formData.name || !formData.goal) {
-      alert("Por favor ingresa un nombre y un objetivo para el retiro.");
+
+    // Run strict validations
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = "Por favor ingresa el nombre del retiro.";
+    if (!formData.type) newErrors.type = "Por favor selecciona el tipo de retiro.";
+    if (!formData.duration) newErrors.duration = "Por favor selecciona la duración.";
+    if (!formData.goal.trim()) newErrors.goal = "Por favor ingresa el objetivo principal.";
+    if (!formData.participantsCount || formData.participantsCount <= 0) {
+      newErrors.participantsCount = "Por favor ingresa un número de participantes válido.";
+    }
+    if (!formData.participantsAge) newErrors.participantsAge = "Por favor selecciona la edad aproximada.";
+    if (!formData.participantsProfile.trim()) newErrors.participantsProfile = "Por favor ingresa el perfil del participante.";
+    if (!formData.locationType) newErrors.locationType = "Por favor selecciona la ubicación.";
+    if (!formData.experienceLevel) newErrors.experienceLevel = "Por favor selecciona el nivel de experiencia.";
+    if (!formData.desiredEnergy) newErrors.desiredEnergy = "Por favor selecciona la energía deseada.";
+    if (!formData.emotionalIntensity) newErrors.emotionalIntensity = "Por favor selecciona la intensidad emocional.";
+    if (!formData.participantRelationship) newErrors.participantRelationship = "Por favor selecciona la relación entre participantes.";
+    
+    if (expectedResults.length === 0) {
+      newErrors.expectedResults = "Por favor selecciona al menos un resultado esperado (máximo 3).";
+    } else if (expectedResults.includes("Otro resultado personalizado") && !otherResultText.trim()) {
+      newErrors.otherResultText = "Por favor escribe el resultado personalizado.";
+    }
+    
+    if (specialConsiderations.includes("Otra consideración") && !otherConsiderationText.trim()) {
+      newErrors.otherConsiderationText = "Por favor escribe la consideración especial.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Scroll first error element into view
+      const firstErrorKey = Object.keys(newErrors)[0];
+      const element = document.getElementById(`field-${firstErrorKey}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
+    setErrors({});
+    setGeminiError(null);
+    const activeUseAI = useAIOverride !== undefined ? useAIOverride : false;
+
     setIsGenerating(true);
-    setGenerationPhase('Sincronizando intenciones...');
+    setGenerationPhase(activeUseAI ? 'Sincronizando intenciones...' : 'Construyendo estructura algorítmica sin IA...');
     
     // Simulate beautiful breathing intervals
-    const phases = [
+    const phases = activeUseAI ? [
       'Analizando perfil de los participantes...',
       'Consultando la Biblioteca oficial de Retiro Studio...',
       'Estructurando transiciones y niveles de energía...',
       'Redactando guiones de facilitación en primera persona...',
       'Consolidando la lista de materiales y suministros...'
+    ] : [
+      'Consultando matriz de compatibilidad somática...',
+      'Equilibrando curvas de intensidad emocional...',
+      'Asignando recursos e instrumentos de la biblioteca...',
+      'Programando pausas logísticas y de alimentación...',
+      'Finalizando agenda autónoma sin IA...'
     ];
 
     let phaseIndex = 0;
@@ -83,13 +113,26 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
         setGenerationPhase(phases[phaseIndex]);
         phaseIndex++;
       }
-    }, 1800);
+    }, 1200);
 
     try {
+      const finalExpectedResults = expectedResults.map(res => 
+        res === "Otro resultado personalizado" ? otherResultText.trim() : res
+      );
+
+      const finalSpecialConsiderations = specialConsiderations.map(con => 
+        con === "Otra consideración" ? otherConsiderationText.trim() : con
+      );
+
       const response = await fetch('/api/generate-retreat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          expectedResults: finalExpectedResults,
+          specialConsiderations: finalSpecialConsiderations,
+          useAI: activeUseAI
+        })
       });
 
       const data = await response.json();
@@ -99,111 +142,21 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
         throw new Error(data.error || "La función de generación no está disponible en el servidor.");
       }
 
-      if (data.retreat) {
+      if (data.success && data.retreat) {
         onSetNewRetreat(data.retreat);
-        setActiveDayTab(1);
+      } else if (data.canGenerateWithoutAI) {
+        setGeminiError(data.error || "Gemini no está disponible en este momento.");
       } else {
-        throw new Error("La respuesta generada no tenía el formato esperado.");
+        throw new Error(data.error || "La respuesta generada no tenía el formato esperado.");
       }
     } catch (err: any) {
       clearInterval(interval);
       console.error(err);
-      alert(err.message || "No pudimos conectar con el servidor para la generación inteligente.");
+      setGeminiError(err.message || "No pudimos conectar con el servidor para la generación inteligente.");
     } finally {
       setIsGenerating(false);
     }
   };
-
-  // Add dynamic activity to live agenda
-  const handleAddCustomActivity = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newActivity.title || !newActivity.time) return;
-
-    const activityToAdd: RetreatActivity = {
-      id: 'act_user_' + Date.now(),
-      time: newActivity.time,
-      title: newActivity.title,
-      duration: Number(newActivity.duration) || 30,
-      emotionalGoal: newActivity.emotionalGoal || 'Alineación',
-      dynamicName: newActivity.dynamicName || newActivity.title,
-      isAiSuggested: true,
-      materials: materialsInput.split(',').map(m => m.trim()).filter(Boolean),
-      preparation: newActivity.preparation || 'Disponer el espacio cómodamente.',
-      script: newActivity.script || '',
-      reflectionQuestions: questionsInput.split(',').map(q => q.trim()).filter(Boolean),
-      closing: newActivity.closing || 'Respira hondo.',
-      recommendedMusic: newActivity.recommendedMusic || '',
-      transition: newActivity.transition || 'Cierra la sesión suavemente.'
-    };
-
-    // Find active day and update its activity array
-    const updatedAgenda = retreat.agenda.map(dayBlock => {
-      if (dayBlock.day === activeDayTab) {
-        return {
-          ...dayBlock,
-          activities: [...dayBlock.activities, activityToAdd]
-        };
-      }
-      return dayBlock;
-    });
-
-    onUpdateRetreat({
-      ...retreat,
-      agenda: updatedAgenda,
-      // Consolidate materials list too
-      materialsList: [...retreat.materialsList, ...activityToAdd.materials]
-    });
-
-    // Reset Form
-    setNewActivity({
-      time: '14:30 PM — 15:30 PM',
-      title: '',
-      duration: 60,
-      emotionalGoal: '',
-      dynamicName: '',
-      materials: [],
-      preparation: '',
-      script: '',
-      reflectionQuestions: [],
-      closing: '',
-      recommendedMusic: '',
-      transition: ''
-    });
-    setMaterialsInput('');
-    setQuestionsInput('');
-    setShowAddActivityForm(false);
-  };
-
-  // Delete activity from the agenda
-  const handleDeleteActivity = (activityId: string) => {
-    const updatedAgenda = retreat.agenda.map(dayBlock => {
-      if (dayBlock.day === activeDayTab) {
-        return {
-          ...dayBlock,
-          activities: dayBlock.activities.filter(act => act.id !== activityId)
-        };
-      }
-      return dayBlock;
-    });
-
-    onUpdateRetreat({
-      ...retreat,
-      agenda: updatedAgenda
-    });
-  };
-
-  // Quick reset to build a new one
-  const handleResetForm = () => {
-    onSetNewRetreat({
-      ...retreat,
-      id: '',
-      name: '',
-      agenda: []
-    });
-  };
-
-  // If we are currently designing a new retreat from scratch
-  const isDesigningNew = !retreat.id;
 
   if (isGenerating) {
     return (
@@ -230,527 +183,387 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
     );
   }
 
-  if (isDesigningNew) {
-    return (
-      <div id="designer-form-container" className="max-w-4xl mx-auto bg-white rounded-2xl border border-gray-100 p-8 shadow-md space-y-8 animate-fade-in">
-        <div className="text-center border-b border-gray-100 pb-6">
-          <div className="mx-auto w-12 h-12 bg-[#154539] text-white rounded-full flex items-center justify-center mb-3">
-            <Compass className="w-6 h-6" />
-          </div>
-          <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#154539]">Diseñador Inteligente de Retiros</h2>
-          <p className="text-sm text-gray-500 font-light mt-1.5 max-w-xl mx-auto">
-            Configura los parámetros de tu experiencia y nuestra IA integrará las dinámicas ideales de la biblioteca oficial.
-          </p>
-        </div>
-
-        <form onSubmit={handleGenerate} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Nombre del Retiro</label>
-              <input 
-                type="text" 
-                placeholder="Ej: El Retorno al Origen — Retiro de Mindfulness y Enraizamiento"
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-                required
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Tipo de Retiro</label>
-              <select 
-                value={formData.type}
-                onChange={e => setFormData({...formData, type: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              >
-                <option>Bienestar y Reconexión</option>
-                <option>Yoga y Pranayama</option>
-                <option>Desintoxicación Corporal y Ayuno</option>
-                <option>Liderazgo Consciente y Negocios</option>
-                <option>Terapia de Trauma y Liberación</option>
-                <option>Creatividad y Escritura Intuitiva</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Duración (Días)</label>
-              <select 
-                value={formData.duration}
-                onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              >
-                <option value={2}>2 días (Fin de semana)</option>
-                <option value={3}>3 días (Estándar)</option>
-                <option value={4}>4 días (Profundo)</option>
-                <option value={5}>5 días (Inmersión completa)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Objetivo Principal del Retiro</label>
-              <textarea 
-                placeholder="¿Qué transformación deseas propiciar en el participante? Ej: Liberarse de la sobreestimulación mental de las grandes ciudades y aprender técnicas corporales de relajación profunda."
-                value={formData.goal}
-                onChange={e => setFormData({...formData, goal: e.target.value})}
-                required
-                rows={3}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none font-sans"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Número de Participantes</label>
-              <input 
-                type="number" 
-                value={formData.participantsCount}
-                onChange={e => setFormData({...formData, participantsCount: Number(e.target.value)})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Edad Aproximada</label>
-              <input 
-                type="text" 
-                value={formData.participantsAge}
-                onChange={e => setFormData({...formData, participantsAge: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Perfil del Participante</label>
-              <input 
-                type="text" 
-                placeholder="Ej: Emprendedores cansados, terapeutas con burnout, público general buscando paz"
-                value={formData.participantsProfile}
-                onChange={e => setFormData({...formData, participantsProfile: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Ubicación del Retiro</label>
-              <input 
-                type="text" 
-                placeholder="Ej: Casa de campo en bosque de pinos, salón interior con ventanales..."
-                value={formData.locationType}
-                onChange={e => setFormData({...formData, locationType: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Nivel de Experiencia</label>
-              <select 
-                value={formData.experienceLevel}
-                onChange={e => setFormData({...formData, experienceLevel: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              >
-                <option>Principiante (No requiere conocimientos previos)</option>
-                <option>Principiante a Intermedio</option>
-                <option>Intermedio (Práctica esporádica previa)</option>
-                <option>Avanzado (Profesionales del rubro)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Energía Deseada</label>
-              <input 
-                type="text" 
-                placeholder="Ej: Serena, silenciosa, introspectiva, liberadora..."
-                value={formData.desiredEnergy}
-                onChange={e => setFormData({...formData, desiredEnergy: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Resultados Esperados</label>
-              <input 
-                type="text" 
-                placeholder="Ej: Desintoxicación digital, autoconocimiento, paz física"
-                value={formData.expectedResults}
-                onChange={e => setFormData({...formData, expectedResults: e.target.value})}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
-              />
-            </div>
-
-          </div>
-
-          <button
-            type="submit"
-            disabled={isGenerating}
-            className={`w-full py-4 text-white rounded-xl font-semibold shadow-md flex items-center justify-center space-x-2.5 transition-all text-sm md:text-base mt-6 ${
-              isGenerating 
-                ? 'bg-gray-400 cursor-not-allowed opacity-75' 
-                : 'bg-[#154539] hover:bg-[#1a5143] cursor-pointer'
-            }`}
-          >
-            <Sparkles className={`w-5 h-5 text-[#C5A059] ${isGenerating ? 'animate-spin' : ''}`} />
-            <span>{isGenerating ? 'Generando Estructura...' : 'Generar Estructura Inteligente con IA'}</span>
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  // Find active day data
-  const currentDayBlock = retreat.agenda.find(dayBlock => dayBlock.day === activeDayTab);
-
   return (
-    <div id="designer-agenda-visualizer" className="space-y-8 animate-fade-in">
-      
-      {/* Title & Stats */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">Diseño Finalizado</span>
-          <h2 className="font-serif text-2xl font-bold text-[#154539]">{retreat.name}</h2>
-          <p className="text-xs text-gray-500 font-light mt-1">Navega por los días del retiro para acceder a tus guiones ceremoniales.</p>
+    <div id="designer-form-container" className="max-w-4xl mx-auto bg-white rounded-2xl border border-gray-100 p-8 shadow-md space-y-8 animate-fade-in">
+      <div className="text-center border-b border-gray-100 pb-6">
+        <div className="mx-auto w-12 h-12 bg-[#154539] text-white rounded-full flex items-center justify-center mb-3">
+          <Compass className="w-6 h-6" />
         </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleResetForm}
-            className="px-4 py-2 bg-[#F7F4EC] hover:bg-beige/40 text-[#154539] hover:text-[#C5A059] rounded-xl text-xs font-semibold border border-gray-100 transition-colors flex items-center space-x-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Crear otro retiro</span>
-          </button>
-        </div>
+        <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#154539]">Diseñador de Retiros</h2>
+        <p className="text-sm text-gray-500 font-light mt-1.5 max-w-xl mx-auto text-center">
+          Configura los parámetros de tu experiencia y nuestro sistema integrará las dinámicas ideales de la biblioteca oficial en una agenda organizada.
+        </p>
       </div>
 
-      {/* Day Selector Tabs */}
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-gray-200 pb-2">
-        {retreat.agenda.map((dayBlock) => (
+      <form onSubmit={handleGenerate} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+          
+          <div id="field-name" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Nombre del Retiro</label>
+            <input 
+              type="text" 
+              placeholder="Ej: El Retorno al Origen — Retiro de Mindfulness y Enraizamiento"
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.name ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            />
+            {errors.name && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.name}</p>}
+          </div>
+
+          <div id="field-type" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Tipo de Retiro</label>
+            <select 
+              value={formData.type}
+              onChange={e => setFormData({...formData, type: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.type ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option>Bienestar y Reconexión</option>
+              <option>Yoga y Pranayama</option>
+              <option>Desintoxicación Corporal y Ayuno</option>
+              <option>Liderazgo Consciente y Negocios</option>
+              <option>Terapia de Trauma y Liberación</option>
+              <option>Creatividad y Escritura Intuitiva</option>
+            </select>
+            {errors.type && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.type}</p>}
+          </div>
+
+          <div id="field-duration" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Duración (Días)</label>
+            <select 
+              value={formData.duration}
+              onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
+              className={`w-full bg-gray-50 border ${errors.duration ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value={2}>2 días (Fin de semana)</option>
+              <option value={3}>3 días (Estándar)</option>
+              <option value={4}>4 días (Profundo)</option>
+              <option value={5}>5 días (Inmersión completa)</option>
+            </select>
+            {errors.duration && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.duration}</p>}
+          </div>
+
+          <div id="field-goal" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Objetivo Principal del Retiro</label>
+            <textarea 
+              placeholder="¿Qué transformación deseas propiciar en el participante? Ej: Liberarse de la sobreestimulación mental de las grandes ciudades y aprender técnicas corporales de relajación profunda."
+              value={formData.goal}
+              onChange={e => setFormData({...formData, goal: e.target.value})}
+              rows={3}
+              className={`w-full bg-gray-50 border ${errors.goal ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none font-sans`}
+            />
+            {errors.goal && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.goal}</p>}
+          </div>
+
+          <div id="field-participantsCount" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Número de Participantes</label>
+            <input 
+              type="number" 
+              value={formData.participantsCount}
+              onChange={e => setFormData({...formData, participantsCount: Number(e.target.value)})}
+              className={`w-full bg-gray-50 border ${errors.participantsCount ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            />
+            {errors.participantsCount && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.participantsCount}</p>}
+          </div>
+
+          <div id="field-participantsAge" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Edad Aproximada</label>
+            <select 
+              value={formData.participantsAge}
+              onChange={e => setFormData({...formData, participantsAge: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.participantsAge ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value="20 - 30 años">20 - 30 años</option>
+              <option value="30 - 50 años">30 - 50 años</option>
+              <option value="50 - 70 años">50 - 70 años</option>
+            </select>
+            {errors.participantsAge && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.participantsAge}</p>}
+          </div>
+
+          <div id="field-participantsProfile" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Perfil del Participante</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Emprendedores cansados, terapeutas con burnout, público general buscando paz"
+              value={formData.participantsProfile}
+              onChange={e => setFormData({...formData, participantsProfile: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.participantsProfile ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            />
+            {errors.participantsProfile && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.participantsProfile}</p>}
+          </div>
+
+          <div id="field-locationType" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Ubicación del Retiro</label>
+            <select 
+              value={formData.locationType}
+              onChange={e => setFormData({...formData, locationType: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.locationType ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value="espacio cerrado">espacio cerrado</option>
+              <option value="espacio abierto">espacio abierto</option>
+              <option value="mixto">mixto</option>
+            </select>
+            {errors.locationType && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.locationType}</p>}
+          </div>
+
+          <div id="field-experienceLevel" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Nivel de Experiencia</label>
+            <select 
+              value={formData.experienceLevel}
+              onChange={e => setFormData({...formData, experienceLevel: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.experienceLevel ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option>Principiante (No requiere conocimientos previos)</option>
+              <option>Principiante a Intermedio</option>
+              <option>Intermedio (Práctica esporádica previa)</option>
+              <option>Avanzado (Profesionales del rubro)</option>
+            </select>
+            {errors.experienceLevel && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.experienceLevel}</p>}
+          </div>
+
+          <div id="field-desiredEnergy" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Energía Deseada</label>
+            <select 
+              value={formData.desiredEnergy}
+              onChange={e => setFormData({...formData, desiredEnergy: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.desiredEnergy ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value="Serena y contemplativa">Serena y contemplativa</option>
+              <option value="Alegre y dinámica">Alegre y dinámica</option>
+              <option value="Íntima y emocional">Íntima y emocional</option>
+              <option value="Espiritual y reflexiva">Espiritual y reflexiva</option>
+              <option value="Activa y motivadora">Activa y motivadora</option>
+              <option value="Creativa y expansiva">Creativa y expansiva</option>
+              <option value="Equilibrada">Equilibrada</option>
+              <option value="Transformadora y profunda">Transformadora y profunda</option>
+            </select>
+            {errors.desiredEnergy && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.desiredEnergy}</p>}
+          </div>
+
+          <div id="field-emotionalIntensity" className="space-y-1.5">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Intensidad Emocional</label>
+            <select 
+              value={formData.emotionalIntensity}
+              onChange={e => setFormData({...formData, emotionalIntensity: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.emotionalIntensity ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value="Suave">Suave</option>
+              <option value="Moderada">Moderada</option>
+              <option value="Profunda">Profunda</option>
+            </select>
+            {errors.emotionalIntensity && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.emotionalIntensity}</p>}
+          </div>
+
+          <div id="field-participantRelationship" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Relación entre Participantes</label>
+            <select 
+              value={formData.participantRelationship}
+              onChange={e => setFormData({...formData, participantRelationship: e.target.value})}
+              className={`w-full bg-gray-50 border ${errors.participantRelationship ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+            >
+              <option value="No se conocen">No se conocen</option>
+              <option value="Algunos participantes se conocen">Algunos participantes se conocen</option>
+              <option value="La mayoría se conoce">La mayoría se conoce</option>
+              <option value="Grupo consolidado">Grupo consolidado</option>
+              <option value="Equipo de trabajo">Equipo de trabajo</option>
+              <option value="Familia o grupo cercano">Familia o grupo cercano</option>
+            </select>
+            {errors.participantRelationship && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.participantRelationship}</p>}
+          </div>
+
+          <div id="field-expectedResults" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider font-serif">Resultados Esperados (Máx. 3)</label>
+            <div className="space-y-3">
+              <select 
+                value="" 
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val && !expectedResults.includes(val) && expectedResults.length < 3) {
+                    setExpectedResults([...expectedResults, val]);
+                  }
+                }}
+                disabled={expectedResults.length >= 3}
+                className={`w-full bg-gray-50 border ${errors.expectedResults ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+              >
+                <option value="">{expectedResults.length >= 3 ? "Límite de 3 resultados alcanzado" : "-- Selecciona un resultado esperado --"}</option>
+                {[
+                  "Relajación y reducción del estrés",
+                  "Reconexión personal",
+                  "Claridad mental y propósito",
+                  "Fortalecimiento de la autoestima",
+                  "Liberación y regulación emocional",
+                  "Conexión y confianza grupal",
+                  "Mejora de la comunicación",
+                  "Desarrollo de liderazgo",
+                  "Integración cuerpo, mente y emociones",
+                  "Aprendizaje de herramientas de bienestar",
+                  "Cierre de ciclos y renovación personal",
+                  "Fortalecimiento de vínculos",
+                  "Mayor consciencia corporal",
+                  "Creatividad e inspiración",
+                  "Crecimiento espiritual",
+                  "Otro resultado personalizado"
+                ].map(opt => (
+                  <option key={opt} value={opt} disabled={expectedResults.includes(opt)}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              
+              <p className="text-[11px] text-gray-400 mt-1">Seleccione hasta 3 resultados esperados.</p>
+              {errors.expectedResults && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.expectedResults}</p>}
+              
+              {expectedResults.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {expectedResults.map(res => (
+                    <span 
+                      key={res} 
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 bg-[#154539]/10 text-[#154539] border border-[#154539]/20 rounded-full text-xs font-medium"
+                    >
+                      <span>{res}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setExpectedResults(expectedResults.filter(r => r !== res))}
+                        className="w-4 h-4 rounded-full hover:bg-[#154539]/20 flex items-center justify-center text-[10px] font-bold"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {expectedResults.includes("Otro resultado personalizado") && (
+                <div id="field-otherResultText" className="mt-3 space-y-1.5 animate-fade-in">
+                  <label className="text-xs font-semibold text-[#154539]">Especifica el resultado personalizado</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Conexión intergeneracional y sanación de linaje familiar"
+                    value={otherResultText}
+                    onChange={e => setOtherResultText(e.target.value)}
+                    className={`w-full bg-gray-50 border ${errors.otherResultText ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+                  />
+                  {errors.otherResultText && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.otherResultText}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div id="field-specialConsiderations" className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider font-serif">Consideraciones Especiales (Opcional)</label>
+            <div className="space-y-3">
+              <select 
+                value="" 
+                onChange={e => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  if (val === "Ninguna") {
+                    setSpecialConsiderations(["Ninguna"]);
+                  } else {
+                    const updated = specialConsiderations.filter(c => c !== "Ninguna");
+                    if (!updated.includes(val)) {
+                      setSpecialConsiderations([...updated, val]);
+                    }
+                  }
+                }}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none"
+              >
+                <option value="">-- Selecciona consideración especial --</option>
+                {[
+                  "Movilidad reducida",
+                  "Actividades sin contacto físico",
+                  "Enfoque sensible al trauma",
+                  "Evitar actividades de alta intensidad física",
+                  "Participantes adultos mayores",
+                  "Participantes menores de edad",
+                  "Restricciones culturales o religiosas",
+                  "Necesidades de accesibilidad",
+                  "Ninguna",
+                  "Otra consideración"
+                ].map(opt => (
+                  <option key={opt} value={opt} disabled={specialConsiderations.includes(opt)}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+
+              {specialConsiderations.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {specialConsiderations.map(con => (
+                    <span 
+                      key={con} 
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 rounded-full text-xs font-medium"
+                    >
+                      <span>{con}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setSpecialConsiderations(specialConsiderations.filter(c => c !== con))}
+                        className="w-4 h-4 rounded-full hover:bg-[#C5A059]/20 flex items-center justify-center text-[10px] font-bold"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {specialConsiderations.includes("Otra consideración") && (
+                <div id="field-otherConsiderationText" className="mt-3 space-y-1.5 animate-fade-in">
+                  <label className="text-xs font-semibold text-[#154539]">Especifica la consideración especial</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Dieta ayurvédica estricta o espacio adaptado para meditación sentada prolongada"
+                    value={otherConsiderationText}
+                    onChange={e => setOtherConsiderationText(e.target.value)}
+                    className={`w-full bg-gray-50 border ${errors.otherConsiderationText ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
+                  />
+                  {errors.otherConsiderationText && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.otherConsiderationText}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Fallback Banner if Gemini is unavailable */}
+        {geminiError && (
+          <div className="bg-amber-50/75 border border-[#C5A059]/30 rounded-xl p-5 space-y-3 animate-fade-in text-left">
+            <div className="flex items-start space-x-3 text-[#154539]">
+              <AlertCircle className="w-5 h-5 mt-0.5 text-[#C5A059] flex-shrink-0" />
+              <div>
+                <h4 className="font-serif font-bold text-sm text-[#154539]">Biblioteca de Contingencia</h4>
+                <p className="text-xs text-gray-700 mt-1 leading-relaxed">
+                  Gemini no está disponible en este momento. Puedes crear el retiro automáticamente utilizando nuestra biblioteca y sistema de planificación.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={(e) => handleGenerate(e, false)}
+                className="px-5 py-2.5 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Generar sin IA</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Generation Button */}
+        <div className="mt-6">
           <button
-            key={dayBlock.day}
-            onClick={() => {
-              setActiveDayTab(dayBlock.day);
-              setOpenActivityId(null);
-            }}
-            className={`px-5 py-3 rounded-t-xl text-xs font-bold tracking-wider uppercase transition-all ${
-              activeDayTab === dayBlock.day
-                ? 'bg-[#154539] text-white shadow-sm -mb-2'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            type="button"
+            onClick={(e) => handleGenerate(e, false)}
+            disabled={isGenerating}
+            className={`w-full py-4 px-6 rounded-xl font-semibold text-white bg-[#154539] hover:bg-[#1a5143] shadow-md transition-all text-sm flex items-center justify-center space-x-2 ${
+              isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
             }`}
           >
-            Día {dayBlock.day}
+            <Compass className="w-5 h-5 text-[#C5A059]" />
+            <span>Generar Retiro</span>
           </button>
-        ))}
-      </div>
-
-      {/* Day Overview Banner */}
-      {currentDayBlock && (
-        <div className="p-5 bg-[#154539]/5 border-l-4 border-[#C5A059] rounded-r-xl">
-          <span className="text-[9px] uppercase tracking-wider text-[#154539] font-bold block">Foco del Día</span>
-          <h3 className="font-serif text-lg font-bold text-[#154539] mt-0.5">{currentDayBlock.focus}</h3>
         </div>
-      )}
-
-      {/* Activities Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Agenda Timeline */}
-        <div className="lg:col-span-2 space-y-4">
-          {currentDayBlock?.activities.map((activity, index) => {
-            const isOpen = openActivityId === activity.id;
-            return (
-              <div 
-                key={activity.id || index} 
-                className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow transition-all"
-              >
-                {/* Accordion Header */}
-                <div 
-                  onClick={() => setOpenActivityId(isOpen ? null : activity.id)}
-                  className="p-4 md:p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50/40 transition-colors"
-                >
-                  <div className="space-y-1 max-w-[80%]">
-                    <div className="flex items-center space-x-2.5">
-                      <span className="font-mono text-xs font-bold text-[#C5A059]">{activity.time}</span>
-                      <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">{activity.duration} min</span>
-                      {activity.isAiSuggested && (
-                        <span className="text-[9px] px-2 py-0.5 bg-[#C5A059]/10 text-[#C5A059] rounded flex items-center font-bold">
-                          IA
-                        </span>
-                      )}
-                    </div>
-                    <h4 className="font-serif text-base md:text-lg font-bold text-[#154539]">{activity.title}</h4>
-                    <p className="text-xs text-gray-600 font-light truncate">{activity.emotionalGoal}</p>
-                  </div>
-                  <div className="flex items-center space-x-3 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteActivity(activity.id);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                      title="Eliminar actividad"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <div>
-                      {isOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Accordion Content Details */}
-                {isOpen && (
-                  <div className="border-t border-gray-100 bg-[#F7F4EC]/10 p-5 space-y-6">
-                    
-                    {/* Inner metadata grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-white p-3.5 rounded-lg border border-gray-100">
-                        <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Objetivo Emocional</h5>
-                        <p className="text-xs text-gray-700 font-light mt-1">{activity.emotionalGoal}</p>
-                      </div>
-                      <div className="bg-white p-3.5 rounded-lg border border-gray-100">
-                        <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Música Sugerida</h5>
-                        <p className="text-xs text-gray-700 font-light mt-1 flex items-center">
-                          <Music className="w-3.5 h-3.5 mr-1 text-[#154539]" />
-                          {activity.recommendedMusic || 'Ambiente natural en silencio'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Preparation Block */}
-                    <div className="space-y-1.5">
-                      <h5 className="text-[11px] uppercase tracking-wider text-[#154539] font-bold">Preparación del Facilitador</h5>
-                      <p className="text-xs text-gray-700 bg-white p-3 rounded-lg border border-gray-100 font-light leading-relaxed">
-                        {activity.preparation}
-                      </p>
-                    </div>
-
-                    {/* Script Block (The First Person script highlighted in beautiful italic) */}
-                    {activity.script && (
-                      <div className="p-4 bg-[#154539] text-white rounded-xl space-y-2 border border-[#1b5346]">
-                        <h5 className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold flex items-center">
-                          <FileText className="w-3.5 h-3.5 mr-1" />
-                          Guion Sugerido (En Primera Persona)
-                        </h5>
-                        <p className="font-serif text-sm italic font-light leading-relaxed pl-3 border-l-2 border-[#C5A059]">
-                          "{activity.script}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Reflection Questions */}
-                    {activity.reflectionQuestions.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h5 className="text-[11px] uppercase tracking-wider text-[#154539] font-bold">Preguntas de Indagación y Reflexión</h5>
-                        <ul className="list-disc list-inside space-y-1 bg-white p-3.5 rounded-lg border border-gray-100">
-                          {activity.reflectionQuestions.map((q, qIdx) => (
-                            <li key={qIdx} className="text-xs text-gray-700 font-light">{q}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Materials, Closing, Transition */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
-                        <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Materiales</h5>
-                        <p className="text-xs text-gray-700 font-light">{activity.materials.join(', ') || 'Ninguno'}</p>
-                      </div>
-                      <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
-                        <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Cierre</h5>
-                        <p className="text-xs text-gray-700 font-light">{activity.closing}</p>
-                      </div>
-                      <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100">
-                        <h5 className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Transición</h5>
-                        <p className="text-xs text-gray-700 font-light">{activity.transition}</p>
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {currentDayBlock?.activities.length === 0 && (
-            <div className="text-center bg-white p-12 rounded-xl border border-gray-100 text-gray-400 font-light">
-              No hay actividades programadas en este día. ¡Crea una nueva a continuación!
-            </div>
-          )}
-
-          {/* Button to open add activity form */}
-          {!showAddActivityForm ? (
-            <button
-              onClick={() => setShowAddActivityForm(true)}
-              className="w-full py-4 border-2 border-dashed border-[#154539]/20 hover:border-[#154539]/50 text-[#154539] hover:text-[#C5A059] rounded-xl text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center space-x-2 bg-white/50 hover:bg-white"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Añadir actividad manual</span>
-            </button>
-          ) : (
-            <form onSubmit={handleAddCustomActivity} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4 animate-fade-in">
-              <h4 className="font-serif text-base font-bold text-[#154539] border-b border-gray-100 pb-2">Añadir Actividad a la Agenda</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Nombre de la Actividad</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: Meditación de Sonido Sagrado"
-                    value={newActivity.title}
-                    onChange={e => setNewActivity({...newActivity, title: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Horario / Rango de Hora</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: 04:30 PM — 05:30 PM"
-                    value={newActivity.time}
-                    onChange={e => setNewActivity({...newActivity, time: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Duración (minutos)</label>
-                  <input
-                    type="number"
-                    value={newActivity.duration}
-                    onChange={e => setNewActivity({...newActivity, duration: Number(e.target.value)})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Objetivo Emocional</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Integrar emociones, asentar la vivencia"
-                    value={newActivity.emotionalGoal}
-                    onChange={e => setNewActivity({...newActivity, emotionalGoal: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Preparación del Facilitador</label>
-                  <textarea
-                    placeholder="Ej: Disponer cojines en círculo cerrado y encender sahumerios."
-                    value={newActivity.preparation}
-                    onChange={e => setNewActivity({...newActivity, preparation: e.target.value})}
-                    rows={2}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Guion Sugerido (Primera Persona)</label>
-                  <textarea
-                    placeholder="Ej: 'Respiren profundamente. Dejen que el sonido del gong limpie los pensamientos...'"
-                    value={newActivity.script}
-                    onChange={e => setNewActivity({...newActivity, script: e.target.value})}
-                    rows={2}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Materiales (separados por coma)</label>
-                  <input
-                    type="text"
-                    placeholder="Gong, cojines, brumas"
-                    value={materialsInput}
-                    onChange={e => setMaterialsInput(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Preguntas de Reflexión (separadas por coma)</label>
-                  <input
-                    type="text"
-                    placeholder="¿Qué resonó en ti?, ¿Qué vibró?"
-                    value={questionsInput}
-                    onChange={e => setQuestionsInput(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Música Sugerida</label>
-                  <input
-                    type="text"
-                    placeholder="Música ambiental suave"
-                    value={newActivity.recommendedMusic}
-                    onChange={e => setNewActivity({...newActivity, recommendedMusic: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Transición</label>
-                  <input
-                    type="text"
-                    placeholder="Caminata silenciosa"
-                    value={newActivity.transition}
-                    onChange={e => setNewActivity({...newActivity, transition: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-end space-x-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddActivityForm(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Añadir a la agenda</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-        </div>
-
-        {/* Right Info Box */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm space-y-4">
-            <h4 className="font-serif text-lg font-bold text-[#154539] border-b border-gray-100 pb-2">Información de Diseño</h4>
-            
-            <div className="space-y-3.5">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#C5A059] block">Perfil Ideal</span>
-                <p className="text-xs text-gray-700 font-light mt-0.5 leading-relaxed">{retreat.idealProfile}</p>
-              </div>
-              <div className="pt-2 border-t border-gray-50">
-                <span className="text-[10px] uppercase font-bold text-[#C5A059] block">Público y Cantidad</span>
-                <p className="text-xs text-gray-700 font-light mt-0.5">{retreat.participantsCount} personas — {retreat.participantsAge}</p>
-              </div>
-              <div className="pt-2 border-t border-gray-50">
-                <span className="text-[10px] uppercase font-bold text-[#C5A059] block">Ubicación Clave</span>
-                <p className="text-xs text-gray-700 font-light mt-0.5">{retreat.locationType}</p>
-              </div>
-              <div className="pt-2 border-t border-gray-50">
-                <span className="text-[10px] uppercase font-bold text-[#C5A059] block">Resultados Prometidos</span>
-                <p className="text-xs text-gray-700 font-light mt-0.5">{retreat.expectedResults}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-[#154539] text-[#d0e0db] rounded-xl border border-[#1d594b] space-y-2">
-            <h5 className="font-serif text-sm font-bold text-[#C5A059] flex items-center">
-              <Sparkles className="w-4 h-4 mr-1.5" />
-              Sincronización Total
-            </h5>
-            <p className="text-[11px] font-light leading-relaxed">
-              Las dinámicas oficiales del catálogo han sido integradas en la línea temporal. Cualquier cambio se verá reflejado inmediatamente en los sumarios del Dashboard.
-            </p>
-          </div>
-        </div>
-
-      </div>
-
+      </form>
     </div>
   );
 };

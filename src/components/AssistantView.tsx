@@ -34,13 +34,16 @@ Puedes escribir libremente tu duda o seleccionar una de nuestras **Consultas de 
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Quick intervention options
+  // Quick intervention options for all 8 tipified contingency situations
   const quickOptions = [
-    { label: '🤫 Baja participación', query: 'Tengo poca participación, el grupo está callado y no habla.' },
-    { label: '😭 Llanto / Contención', query: 'Un participante comenzó a llorar intensamente en plena dinámica, ¿cómo lo contengo?' },
-    { label: '⏰ Retraso en agenda', query: 'Vamos con 30 minutos de retraso en la agenda, ¿qué hago para reajustar sin perder profundidad?' },
-    { label: '😴 Baja energía', query: 'El grupo tiene sueño y pesadez en el bloque de la tarde.' },
-    { label: '🔥 Conflicto grupal', query: 'Siento tensión o conflicto explícito entre dos participantes.' }
+    { label: '🤫 Baja participación', query: 'Tengo baja participación y el grupo está silencioso.' },
+    { label: '😶 Grupo callado', query: 'El grupo está completamente callado y cuesta que hablen.' },
+    { label: '😭 Llanto / Contención', query: 'Un participante comenzó a llorar intensamente y necesita contención.' },
+    { label: '😴 Baja energía', query: 'El grupo tiene baja energía, sueño o cansancio digestivo.' },
+    { label: '🔥 Conflicto grupal', query: 'Siento conflicto grupal o tensión pasivo-agresiva entre participantes.' },
+    { label: '⏰ Retraso en agenda', query: 'Hay retraso en la agenda y desvío del horario previsto.' },
+    { label: '📦 Falta de materiales', query: 'Tenemos falta de materiales o suministros para la dinámica.' },
+    { label: '⏳ Poco tiempo disponible', query: 'Nos queda muy poco tiempo disponible para completar el bloque.' }
   ];
 
   const scrollToBottom = () => {
@@ -51,7 +54,7 @@ Puedes escribir libremente tu duda o seleccionar una de nuestras **Consultas de 
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const handleSendMessage = async (textToSend: string) => {
+  const handleSendMessage = async (textToSend: string, forceNoAIParam: boolean = false) => {
     if (!textToSend.trim()) return;
 
     const userMessage: Message = {
@@ -78,7 +81,8 @@ Puedes escribir libremente tu duda o seleccionar una de nuestras **Consultas de 
         body: JSON.stringify({
           message: textToSend,
           currentRetreatId: retreat.id || undefined,
-          chatHistory: chatHistory
+          chatHistory: chatHistory,
+          forceNoAI: forceNoAIParam
         })
       });
 
@@ -254,7 +258,7 @@ Puedes escribir libremente tu duda o seleccionar una de nuestras **Consultas de 
             {quickOptions.map((opt, idx) => (
               <button
                 key={idx}
-                onClick={() => handleSendMessage(opt.query)}
+                onClick={() => handleSendMessage(opt.query, true)}
                 className="text-[11px] px-3 py-1.5 bg-gray-50 hover:bg-[#154539] hover:text-white border border-gray-200 rounded-lg font-medium transition-all"
               >
                 {opt.label}
