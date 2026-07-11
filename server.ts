@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 
 // Import the Vercel serverless handlers
 import healthHandler from "./api/health.js";
+import geminiTestHandler from "./api/gemini-test.js";
 import generateRetreatHandler from "./api/generate-retreat.js";
 import assistantHandler from "./api/assistant.js";
 import generateDynamicHandler from "./api/generate-dynamic.js";
@@ -20,6 +21,7 @@ app.use(express.json());
 
 // Register API endpoints locally, delegating to the unified Serverless Functions
 app.get("/api/health", healthHandler);
+app.get("/api/gemini-test", geminiTestHandler);
 app.post("/api/generate-retreat", generateRetreatHandler);
 app.post("/api/assistant", assistantHandler);
 app.post("/api/generate-dynamic", generateDynamicHandler);
