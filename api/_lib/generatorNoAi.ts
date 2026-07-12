@@ -1,6 +1,6 @@
-import { Dynamic, Retreat, RetreatActivity, RetreatDay, MusicTrack } from "../../src/types.js";
+import type { Dynamic, Retreat, RetreatActivity, RetreatDay, MusicTrack } from "../../src/types.js";
 import { OFFICIAL_DYNAMICS } from "./dynamics.js";
-import { OFFICIAL_PLAYLISTS } from "../../src/data/music.js";
+import { OFFICIAL_PLAYLISTS } from "../../shared/music.js";
 
 // Music recommendations by category
 const MUSIC_BY_CATEGORY: Record<string, string[]> = {

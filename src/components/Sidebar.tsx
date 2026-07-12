@@ -42,13 +42,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Active Retreat Info */}
       <div id="active-retreat-panel" className="px-6 py-4 border-b border-[#1b5346] bg-[#123e33]">
-        <span id="active-retreat-badge" className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">Retiro en curso</span>
+        <span id="active-retreat-badge" className="text-[10px] uppercase tracking-wider text-[#a4c5b9]">
+          {retreatName === "Aún no has creado un retiro" ? "Sin retiro activo" : "Retiro en curso"}
+        </span>
         <h3 id="active-retreat-title" className="font-serif text-base font-medium truncate text-white leading-tight mt-1">
           {retreatName}
         </h3>
         <p id="active-retreat-facilitator" className="text-[11px] text-[#a4c5b9] mt-1 flex items-center">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] mr-1.5 animate-pulse"></span>
-          Facilitador Activo
+          <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${retreatName === "Aún no has creado un retiro" ? 'bg-gray-400' : 'bg-[#C5A059] animate-pulse'}`}></span>
+          {retreatName === "Aún no has creado un retiro" ? "Sin retiro activo" : "Facilitador Activo"}
         </p>
       </div>
 

@@ -90,7 +90,7 @@ const sampleRetreat = {
   progress: 70
 };
 
-let retreatsList = [sampleRetreat];
+let retreatsList: any[] = [];
 
 export default function handler(req: any, res: any) {
   if (req.method === 'GET') {

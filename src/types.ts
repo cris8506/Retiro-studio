@@ -20,13 +20,18 @@ export interface MusicTrack {
   id: string;
   title: string;
   artist: string;
-  category: 'Apertura' | 'Bienvenida' | 'Meditación' | 'Conexión' | 'Reflexión' | 'Liberación' | 'Movimiento' | 'Gratitud' | 'Cierre';
+  category: 'Apertura' | 'Bienvenida' | 'Meditación' | 'Respiración' | 'Conexión' | 'Reflexión' | 'Liberación' | 'Movimiento' | 'Gratitud' | 'Cierre';
   type: string;
+  style?: string;
   isInstrumental: boolean;
+  instrumental?: boolean;
   energyLevel: 'Bajo' | 'Medio' | 'Alto';
   duration: string;
   recommendedMoment: string;
   whyItFits: string;
+  neuroacousticFoundation?: string;
+  audioUrl?: string;
+  durationSeconds?: number | null;
 }
 
 export interface RetreatActivity {

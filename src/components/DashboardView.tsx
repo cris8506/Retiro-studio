@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   CheckCircle, Plus, Trash2, Calendar, Users, MapPin, 
   Sparkles, Music, Star, Edit, Volume2, FileText, CheckSquare, Clock,
-  ChevronDown, ChevronUp, Check, Compass
+  ChevronDown, ChevronUp, Check, Compass, BookOpen
 } from 'lucide-react';
 import { Retreat, MusicTrack, RetreatActivity } from '../types';
 
@@ -206,6 +206,106 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       notes: updatedNotes
     });
   };
+
+  if (retreats.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[70vh] px-4 py-8 animate-fade-in" id="dashboard-empty-state">
+        <div id="welcome-card" className="max-w-4xl w-full bg-[#fcfbf9] rounded-3xl border border-[#154539]/10 shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
+          
+          {/* Left Column: Premium Text & CTAs */}
+          <div className="p-8 md:p-12 lg:p-16 md:col-span-7 flex flex-col justify-center space-y-8 text-left">
+            <div className="space-y-4">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 bg-[#154539]/5 border border-[#154539]/10 rounded-full text-[11px] font-medium text-[#154539] tracking-wider uppercase">
+                <Sparkles className="w-3.5 h-3.5 text-[#C5A059] animate-pulse" />
+                <span>Diseño Consciente</span>
+              </div>
+              <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#154539] tracking-tight leading-tight">
+                Bienvenido a <br />
+                <span className="text-[#C5A059]">Retiro Studio</span>
+              </h2>
+              <p className="text-sm md:text-base text-gray-600 font-light leading-relaxed">
+                Crea tu primer retiro y comienza a diseñar experiencias transformacionales con nuestra guía e inteligencia de facilitación.
+              </p>
+            </div>
+
+            {/* Subtle premium benefit tags */}
+            <div className="space-y-3.5 border-t border-b border-gray-100 py-6">
+              <div className="flex items-start space-x-3">
+                <div className="mt-0.5 w-4 h-4 rounded-full bg-[#C5A059]/10 flex items-center justify-center text-[#C5A059]">
+                  <Check className="w-3 h-3 stroke-[3]" />
+                </div>
+                <p className="text-xs font-medium text-gray-700">Cronogramas fluidos y adaptaciones de agenda</p>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="mt-0.5 w-4 h-4 rounded-full bg-[#C5A059]/10 flex items-center justify-center text-[#C5A059]">
+                  <Check className="w-3 h-3 stroke-[3]" />
+                </div>
+                <p className="text-xs font-medium text-gray-700">Asistente de contingencia para dinámicas en tiempo real</p>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="mt-0.5 w-4 h-4 rounded-full bg-[#C5A059]/10 flex items-center justify-center text-[#C5A059]">
+                  <Check className="w-3 h-3 stroke-[3]" />
+                </div>
+                <p className="text-xs font-medium text-gray-700">Música de inmersión y control de materiales integrado</p>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+              <button
+                onClick={() => onViewChange('designer')}
+                className="group px-6 py-4 bg-[#154539] hover:bg-[#1a5143] text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-md transition-all flex items-center justify-center space-x-2.5 cursor-pointer hover:scale-[1.02] active:scale-95"
+              >
+                <Plus className="w-4 h-4 text-[#C5A059] group-hover:rotate-90 transition-transform duration-300" />
+                <span>Crear mi primer retiro</span>
+              </button>
+              <button
+                onClick={() => onViewChange('library')}
+                className="px-6 py-4 bg-white hover:bg-gray-50 text-[#154539] border border-[#154539]/15 text-xs font-bold tracking-wider uppercase rounded-xl shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer hover:scale-[1.02] active:scale-95"
+              >
+                <BookOpen className="w-4 h-4 text-[#C5A059]" />
+                <span>Explorar biblioteca</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: High-End Abstract Illustration (visible on md+) */}
+          <div className="hidden md:flex md:col-span-5 bg-gradient-to-tr from-[#154539] to-[#0f342a] relative overflow-hidden items-center justify-center p-8 border-l border-[#154539]/10">
+            {/* Background luxury soft circular patterns representing sun & orbits */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(197,160,89,0.15),transparent_60%)]"></div>
+            
+            {/* The Sun / Core of Energy */}
+            <div className="absolute w-56 h-56 rounded-full bg-gradient-to-b from-[#C5A059]/20 to-transparent top-1/4 left-1/4 animate-pulse duration-[8000ms]"></div>
+            
+            {/* Geometric Art Composition */}
+            <div className="relative w-full max-w-[240px] aspect-square flex items-center justify-center">
+              {/* Outer delicate gold ring */}
+              <div className="absolute inset-0 border border-[#C5A059]/20 rounded-full animate-spin-slow"></div>
+              
+              {/* Middle dashed orbit */}
+              <div className="absolute w-[80%] h-[80%] border border-dashed border-[#a4c5b9]/25 rounded-full"></div>
+              
+              {/* Inner glowing core with leaf/compass abstract metaphor */}
+              <div className="absolute w-[50%] h-[50%] bg-[#1c5043]/80 backdrop-blur-sm rounded-full border border-[#C5A059]/45 flex items-center justify-center shadow-lg">
+                <Compass className="w-10 h-10 text-[#C5A059]" />
+              </div>
+
+              {/* Floating golden accents */}
+              <div className="absolute top-2 right-12 w-2 h-2 rounded-full bg-[#C5A059] shadow-md animate-bounce"></div>
+              <div className="absolute bottom-8 left-4 w-1.5 h-1.5 rounded-full bg-[#a4c5b9]"></div>
+            </div>
+
+            {/* Bottom Brand Statement */}
+            <div className="absolute bottom-6 text-center left-0 right-0 px-6">
+              <span className="text-[10px] tracking-widest text-[#a4c5b9] uppercase font-light">Espacio de Facilitación</span>
+              <p className="text-[11px] text-[#C5A059] font-serif italic mt-0.5">Sostén, presencia y transformación</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="dashboard-view-root" className="space-y-8 animate-fade-in">

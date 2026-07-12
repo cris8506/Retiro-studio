@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { DesignerView } from './components/DesignerView';
@@ -6,9 +6,12 @@ import { DynamicsView } from './components/DynamicsView';
 import { AssistantView } from './components/AssistantView';
 import { MusicView } from './components/MusicView';
 import { Retreat, MusicTrack } from './types';
+import { OFFICIAL_PLAYLISTS } from './data/music';
+import { NeuroacousticSynth } from './lib/audioSynth';
 import { 
   Menu, X, Sparkles, Compass, LayoutDashboard, 
-  BookOpen, MessageSquare, Music, Play, Pause, AlertCircle, HeartHandshake, Volume2
+  BookOpen, MessageSquare, Music, Play, Pause, AlertCircle, HeartHandshake, Volume2,
+  RefreshCw, SkipForward, Square, AlertTriangle
 } from 'lucide-react';
 
 export default function App() {
@@ -20,6 +23,7 @@ export default function App() {
 
   // All retreats collection state
   const [retreats, setRetreats] = useState<Retreat[]>([]);
+  const [retreatsStatus, setRetreatsStatus] = useState<'loading' | 'empty' | 'loaded' | 'error'>('loading');
 
   // Active retreat global state
   const [activeRetreat, setActiveRetreat] = useState<Retreat>({
@@ -48,30 +52,281 @@ export default function App() {
   const [activeTrack, setActiveTrack] = useState<MusicTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [soundIntensity, setSoundIntensity] = useState<number>(60);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [totalDuration, setTotalDuration] = useState<number>(0);
+  const [loopMode, setLoopMode] = useState<'next' | 'repeat' | 'stop'>('next');
+  const [trackError, setTrackError] = useState<string | null>(null);
+  const [trackDurations, setTrackDurations] = useState<Record<string, { durationStr: string; seconds: number | null }>>({});
 
-  // Load the seed/default retreat on mount so the dashboard isn't empty and feels instantly alive
+  const [isUsingSynth, setIsUsingSynth] = useState<boolean>(false);
+
+  const EMPTY_TRACK_IDS = useRef<Set<string>>(new Set([
+    'music_006', // Meditation Healing
+    'music_007', // Handpan Meditation 432Hz
+    'music_008', // Relaxing Handpan Piano Music
+    'music_009', // A Love Theme
+    'music_010', // You and Me
+    'music_011', // Possible Dreams
+    'music_012', // Staring at the Night Sky
+    'music_013', // Drawing the Sky
+    'music_014'  // Silent Descent
+  ]));
+
+  const synthRef = useRef<NeuroacousticSynth | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize synth on mount
   useEffect(() => {
-    const fetchDefaultRetreat = async () => {
-      try {
-        const response = await fetch('/api/retreats');
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setRetreats(data);
-          if (data.length > 0) {
-            // Find our pre-seeded retreat "despertar_sentidos"
-            const seeded = data.find(r => r.id === 'despertar_sentidos');
-            if (seeded) {
-              setActiveRetreat(seeded);
-            } else {
-              setActiveRetreat(data[0]);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("No se pudo cargar el retiro pre-sembrado:", err);
+    synthRef.current = new NeuroacousticSynth();
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.stop();
       }
     };
-    fetchDefaultRetreat();
+  }, []);
+
+  // Formatting helper for duration/time
+  const formatDuration = (seconds: number): string => {
+    if (isNaN(seconds) || !isFinite(seconds)) return "Cargando duración...";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    if (h > 0) {
+      return `${h}:${pad(m)}:${pad(s)}`;
+    }
+    return `${pad(m)}:${pad(s)}`;
+  };
+
+  // Pre-load durations of all tracks
+  useEffect(() => {
+    OFFICIAL_PLAYLISTS.forEach(track => {
+      if (EMPTY_TRACK_IDS.current.has(track.id)) {
+        setTrackDurations(prev => ({
+          ...prev,
+          [track.id]: { durationStr: "05:00", seconds: 300 }
+        }));
+        return;
+      }
+
+      if (!track.audioUrl) return;
+      const audioObj = new Audio();
+      audioObj.src = encodeURI(track.audioUrl);
+      audioObj.preload = "metadata";
+      
+      const handleMeta = () => {
+        const secs = audioObj.duration;
+        const durationStr = formatDuration(secs);
+        setTrackDurations(prev => ({
+          ...prev,
+          [track.id]: { durationStr, seconds: secs }
+        }));
+      };
+
+      const handleErr = () => {
+        setTrackDurations(prev => ({
+          ...prev,
+          [track.id]: { durationStr: "05:00", seconds: 300 }
+        }));
+      };
+
+      audioObj.addEventListener('loadedmetadata', handleMeta);
+      audioObj.addEventListener('error', handleErr);
+    });
+  }, []);
+
+  // Set up standard Audio element and its event listeners once
+  useEffect(() => {
+    const audio = new Audio();
+    audioRef.current = audio;
+
+    const handleTime = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleMeta = () => {
+      setTotalDuration(audio.duration);
+      setTrackError(null);
+    };
+
+    const handleEnded = () => {
+      handleTrackEnded();
+    };
+
+    const handleErr = () => {
+      if (audio.src && audio.src !== window.location.href) {
+        console.error("Audio player loading error. Switching to synthesized atmosphere fallback.");
+        // Mark as synth track dynamically so the synthesizer takes over
+        setIsUsingSynth(true);
+        setTotalDuration(300);
+        if (synthRef.current && isPlaying && activeTrack) {
+          synthRef.current.start(activeTrack.category, soundIntensity / 100);
+        }
+      }
+    };
+
+    audio.addEventListener('timeupdate', handleTime);
+    audio.addEventListener('loadedmetadata', handleMeta);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleErr);
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener('timeupdate', handleTime);
+      audio.removeEventListener('loadedmetadata', handleMeta);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleErr);
+    };
+  }, [activeTrack, isPlaying, loopMode]);
+
+  // Main Audio & Synthesizer action coordinator
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // Shut down current synth play first
+    if (synthRef.current) {
+      synthRef.current.stop();
+    }
+    audio.pause();
+
+    if (!activeTrack) {
+      setIsUsingSynth(false);
+      setCurrentTime(0);
+      setTotalDuration(0);
+      setTrackError(null);
+      return;
+    }
+
+    const isSynth = EMPTY_TRACK_IDS.current.has(activeTrack.id);
+    setIsUsingSynth(isSynth);
+
+    if (isSynth) {
+      // Clear out the standard player source
+      audio.src = "";
+      setCurrentTime(0);
+      setTotalDuration(300); // 5 minutes virtual track
+      setTrackError(null);
+
+      if (isPlaying && synthRef.current) {
+        synthRef.current.start(activeTrack.category, soundIntensity / 100);
+      }
+    } else {
+      // Load standard file
+      const encodedUrl = encodeURI(activeTrack.audioUrl || '');
+      audio.src = encodedUrl;
+      audio.load();
+      audio.volume = soundIntensity / 100;
+      setCurrentTime(0);
+      setTotalDuration(0);
+      setTrackError(null);
+
+      if (isPlaying) {
+        audio.play().catch(err => {
+          console.warn("Playback failed. Activating live synthesized audio stream instead.", err);
+          setIsUsingSynth(true);
+          setTotalDuration(300);
+          if (synthRef.current) {
+            synthRef.current.start(activeTrack.category, soundIntensity / 100);
+          }
+        });
+      }
+    }
+  }, [activeTrack, isPlaying]);
+
+  // Handle virtual ticker for synthesized play sessions
+  useEffect(() => {
+    if (!isUsingSynth || !isPlaying) return;
+
+    const ticker = setInterval(() => {
+      setCurrentTime(prev => {
+        const next = prev + 1;
+        const maxDuration = totalDuration || 300;
+        if (next >= maxDuration) {
+          setTimeout(() => handleTrackEnded(), 10);
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(ticker);
+  }, [isUsingSynth, isPlaying, totalDuration, activeTrack]);
+
+  // Sync volume changes dynamically
+  useEffect(() => {
+    const vol = soundIntensity / 100;
+    if (audioRef.current) {
+      audioRef.current.volume = vol;
+    }
+    if (synthRef.current && isUsingSynth) {
+      synthRef.current.setVolume(vol);
+    }
+  }, [soundIntensity, isUsingSynth]);
+
+  // Helper to seek/scrub through the track
+  const handleSeek = (time: number) => {
+    setCurrentTime(time);
+    if (!isUsingSynth && audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  const handleTrackEnded = () => {
+    if (loopMode === 'repeat') {
+      setCurrentTime(0);
+      if (!isUsingSynth && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(err => console.error("Repeat failed:", err));
+      }
+    } else if (loopMode === 'next') {
+      if (activeTrack) {
+        const currentIndex = OFFICIAL_PLAYLISTS.findIndex(t => t.id === activeTrack.id);
+        const nextTrack = (currentIndex !== -1 && currentIndex < OFFICIAL_PLAYLISTS.length - 1)
+          ? OFFICIAL_PLAYLISTS[currentIndex + 1]
+          : OFFICIAL_PLAYLISTS[0];
+        setActiveTrack(nextTrack);
+        setIsPlaying(true);
+      }
+    } else {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+    }
+  };
+
+  const fetchRetreats = async () => {
+    setRetreatsStatus('loading');
+    try {
+      const response = await fetch('/api/retreats');
+      if (!response.ok) {
+        throw new Error("No fue posible cargar tus retiros.");
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setRetreats(data);
+        if (data.length > 0) {
+          // If we have retreats, select the most recent one (last in list)
+          const lastRetreat = data[data.length - 1];
+          setActiveRetreat(lastRetreat);
+          setRetreatsStatus('loaded');
+        } else {
+          setRetreatsStatus('empty');
+        }
+      } else {
+        setRetreatsStatus('error');
+      }
+    } catch (err) {
+      console.error("Error fetching retreats:", err);
+      setRetreatsStatus('error');
+    }
+  };
+
+  // Load retreats on mount
+  useEffect(() => {
+    fetchRetreats();
   }, []);
 
   const handlePlayTrack = (track: MusicTrack) => {
@@ -107,27 +362,59 @@ export default function App() {
     }
   };
 
-  const handleSetNewRetreat = (newRetreat: Retreat) => {
-    setActiveRetreat(newRetreat);
-    setRetreats(prev => {
-      const filtered = prev.filter(r => r.id !== newRetreat.id);
-      return [...filtered, newRetreat];
-    });
-    // Keep it synced with backend memory
-    fetch('/api/retreats', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newRetreat)
-    }).catch(err => console.error("Error saving new retreat POST:", err));
-
-    setCurrentView('dashboard');
-    handleShowNotification(`🌿 ¡Felicidades! "${newRetreat.name}" generado e importado al Dashboard.`);
+  const handleSetNewRetreat = async (newRetreat: Retreat) => {
+    try {
+      const response = await fetch('/api/retreats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRetreat)
+      });
+      if (!response.ok) {
+        throw new Error("No se pudo guardar el retiro.");
+      }
+      setActiveRetreat(newRetreat);
+      setRetreats(prev => {
+        const filtered = prev.filter(r => r.id !== newRetreat.id);
+        return [...filtered, newRetreat];
+      });
+      setRetreatsStatus('loaded');
+      setCurrentView('dashboard');
+      handleShowNotification(`🌿 ¡Felicidades! "${newRetreat.name}" generado e importado al Dashboard.`);
+    } catch (err) {
+      console.error("Error saving new retreat:", err);
+      handleShowNotification("⚠️ Ocurrió un error al guardar tu retiro.");
+    }
   };
 
   // Render proper view component based on active navigation tab
   const renderViewContent = () => {
     switch (currentView) {
       case 'dashboard':
+        if (retreatsStatus === 'loading') {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+              <div className="w-10 h-10 border-4 border-[#154539] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-gray-500 font-light">Cargando tus retiros...</p>
+            </div>
+          );
+        }
+        if (retreatsStatus === 'error') {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 bg-white p-8 rounded-2xl border border-red-100 max-w-md mx-auto text-center animate-fade-in">
+              <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="font-serif text-lg font-bold text-gray-900">Error de Conexión</h3>
+              <p className="text-sm text-gray-600 font-light">No fue posible cargar tus retiros. Inténtalo nuevamente.</p>
+              <button
+                onClick={fetchRetreats}
+                className="px-5 py-2.5 bg-[#154539] hover:bg-[#1a5143] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Reintentar
+              </button>
+            </div>
+          );
+        }
         return (
           <DashboardView 
             retreat={activeRetreat}
@@ -169,6 +456,15 @@ export default function App() {
             activeTrack={activeTrack}
             isPlaying={isPlaying}
             onTogglePlay={handleTogglePlay}
+            trackDurations={trackDurations}
+            currentTime={currentTime}
+            totalDuration={totalDuration}
+            onSeek={handleSeek}
+            soundIntensity={soundIntensity}
+            onVolumeChange={setSoundIntensity}
+            loopMode={loopMode}
+            onLoopModeChange={setLoopMode}
+            trackError={trackError}
           />
         );
       default:
@@ -190,7 +486,7 @@ export default function App() {
           setCurrentView(view);
           setIsMobileMenuOpen(false);
         }}
-        retreatName={activeRetreat.name || "Crea tu primer Retiro"}
+        retreatName={retreatsStatus === 'loaded' ? (activeRetreat.name || "Sin nombre") : "Aún no has creado un retiro"}
         activeTrack={activeTrack}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
@@ -232,7 +528,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {activeRetreat.id && (
+            {retreatsStatus === 'loaded' && activeRetreat.id && (
               <span className="hidden md:inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-[#154539]/10 text-[#154539]">
                 <HeartHandshake className="w-3.5 h-3.5 mr-1.5" />
                 {activeRetreat.name}
@@ -311,34 +607,84 @@ export default function App() {
         {activeTrack && (
           <div 
             id="global-music-player-bar"
-            className="bg-[#154539] text-white border-t border-[#1b5346] px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 relative z-30"
+            className="bg-[#154539] text-white border-t border-[#1b5346] px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 relative z-30 shadow-lg"
           >
-            <div className="flex items-center space-x-3.5 w-full md:w-auto">
+            {/* Left: Track Info */}
+            <div className="flex items-center space-x-3.5 w-full md:w-1/4">
               <div className="w-10 h-10 bg-[#C5A059]/20 text-[#C5A059] rounded-lg flex items-center justify-center flex-shrink-0 animate-spin-slow">
                 <Music className="w-5 h-5" />
               </div>
               <div className="truncate pr-2">
-                <h5 className="text-xs font-bold text-white truncate leading-tight">{activeTrack.title}</h5>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h5 className="text-xs font-bold text-white truncate leading-tight">{activeTrack.title}</h5>
+                  <span className="text-[9px] px-1.5 py-0.25 bg-[#C5A059]/20 text-[#C5A059] rounded font-medium">
+                    {activeTrack.category}
+                  </span>
+                  {isUsingSynth && (
+                    <span className="text-[8px] px-1 py-0.25 bg-[#C5A059]/30 text-yellow-200 border border-[#C5A059]/40 rounded font-medium animate-pulse" title="Sintetizado en tiempo real por el motor de audio">
+                      Sintetizador
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-[#a4c5b9] truncate mt-0.5">{activeTrack.artist}</p>
               </div>
             </div>
 
-            {/* Play controls */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleTogglePlay}
-                className="p-3 bg-[#C5A059] hover:bg-[#b08b47] rounded-full text-white transition-all shadow-md flex items-center justify-center"
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </button>
-              
-              <div className="flex items-center space-x-1">
-                <span className="text-[10px] text-gray-300 font-mono">Simulación de sonido activo en sala...</span>
+            {/* Middle: Playback Controls & Progress bar */}
+            <div className="flex flex-col items-center gap-1.5 w-full md:w-2/4">
+              <div className="flex items-center space-x-4">
+                {/* Loop Mode toggle */}
+                <button
+                  onClick={() => {
+                    const modes: ('next' | 'repeat' | 'stop')[] = ['next', 'repeat', 'stop'];
+                    const nextIndex = (modes.indexOf(loopMode) + 1) % modes.length;
+                    setLoopMode(modes[nextIndex]);
+                  }}
+                  title={`Modo de fin: ${loopMode === 'next' ? 'Siguiente pista' : loopMode === 'repeat' ? 'Repetir pista' : 'Detener'}`}
+                  className="p-1.5 rounded transition-colors text-xs flex items-center space-x-1 cursor-pointer text-[#a4c5b9] hover:text-white"
+                >
+                  {loopMode === 'repeat' ? (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  ) : loopMode === 'stop' ? (
+                    <Square className="w-3.5 h-3.5" />
+                  ) : (
+                    <SkipForward className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-[9px] uppercase font-bold">{loopMode === 'repeat' ? 'Bucle' : loopMode === 'stop' ? 'Stop' : 'Sigue'}</span>
+                </button>
+
+                {/* Play/Pause */}
+                <button
+                  onClick={handleTogglePlay}
+                  className="p-2.5 bg-[#C5A059] hover:bg-[#b08b47] rounded-full text-white transition-all shadow-md flex items-center justify-center cursor-pointer"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 pl-0.5" />}
+                </button>
+
+                <span className="text-[10px] text-gray-300 font-mono">
+                  Energía {activeTrack.energyLevel}
+                </span>
+              </div>
+
+              {/* Progress Bar & scrubbing */}
+              <div className="flex items-center space-x-3 w-full">
+                <span className="text-[9px] text-[#a4c5b9] font-mono w-10 text-right">{formatDuration(currentTime)}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max={totalDuration || (trackDurations[activeTrack.id]?.seconds || 100)}
+                  value={currentTime}
+                  onChange={(e) => handleSeek(Number(e.target.value))}
+                  className="flex-1 accent-[#C5A059] bg-[#1a5143] h-1 rounded-full cursor-pointer hover:h-1.5 transition-all"
+                />
+                <span className="text-[9px] text-[#a4c5b9] font-mono w-10 text-left">
+                  {formatDuration(totalDuration || (trackDurations[activeTrack.id]?.seconds || 0))}
+                </span>
               </div>
             </div>
 
-            {/* Sound Level control */}
-            <div className="hidden md:flex items-center space-x-2.5">
+            {/* Right: Sound Level control */}
+            <div className="hidden md:flex items-center justify-end space-x-2.5 w-full md:w-1/4">
               <Volume2 className="w-4 h-4 text-gray-300" />
               <input
                 type="range"
