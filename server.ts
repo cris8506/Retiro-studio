@@ -11,6 +11,7 @@ import assistantHandler from "./api/assistant.js";
 import generateDynamicHandler from "./api/generate-dynamic.js";
 import retreatsListHandler from "./api/retreats.js";
 import retreatDetailHandler from "./api/retreats/[id].js";
+import dynamicsTestHandler from "./api/dynamics-test.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(express.json());
 // Register API endpoints locally, delegating to the unified Serverless Functions
 app.get("/api/health", healthHandler);
 app.get("/api/gemini-test", geminiTestHandler);
+app.get("/api/dynamics-test", dynamicsTestHandler);
 app.post("/api/generate-retreat", generateRetreatHandler);
 app.post("/api/assistant", assistantHandler);
 app.post("/api/generate-dynamic", generateDynamicHandler);

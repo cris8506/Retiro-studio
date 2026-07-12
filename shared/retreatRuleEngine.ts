@@ -80,24 +80,48 @@ export function isDynamicSuitable(dynamic: DynamicType, formData: any): boolean 
   const hasMobilityRestriction = considerations.some((c: string) => 
     c.toLowerCase().includes("movilidad") || 
     c.toLowerCase().includes("física") || 
-    c.toLowerCase().includes("fisica")
+    c.toLowerCase().includes("fisica") ||
+    c.toLowerCase().includes("lesión") ||
+    c.toLowerCase().includes("lesion")
   );
   if (hasMobilityRestriction && !dynamic.mobilityFriendly) {
     return false;
   }
 
-  // 2. Physical Intensity Exclusions
-  if (formData.emotionalIntensity === "Suave" && dynamic.physicalIntensity === "alta") {
-    return false;
+  // 2. Physical and Emotional Intensity Exclusions
+  const reqIntensity = (formData.emotionalIntensity || '').toLowerCase();
+  if (reqIntensity === "suave") {
+    if (dynamic.physicalIntensity === "alta" || dynamic.emotionalIntensity === "profunda") {
+      return false;
+    }
   }
 
   // 3. No Physical Contact Constraints
   const hasNoContact = considerations.some((c: string) => 
     c.toLowerCase().includes("sin contacto") || 
-    c.toLowerCase().includes("evitar contacto")
+    c.toLowerCase().includes("evitar contacto") ||
+    c.toLowerCase().includes("no contacto")
   );
-  if (hasNoContact && dynamic.requiresContact && !dynamic.noPhysicalContactVersion && !dynamic.suggestedAdaptation) {
+  if (hasNoContact && dynamic.requiresContact) {
     return false;
+  }
+
+  // Experience Level Exclusions
+  const exp = (formData.experienceLevel || '').toLowerCase();
+  if (exp) {
+    if (exp.includes('principiante')) {
+      if (!dynamic.experienceLevels.some(e => e === 'principiante' || e === 'todos')) {
+        return false;
+      }
+    } else if (exp.includes('intermedio')) {
+      if (!dynamic.experienceLevels.some(e => e === 'intermedio' || e === 'todos')) {
+        return false;
+      }
+    } else if (exp.includes('avanzado')) {
+      if (!dynamic.experienceLevels.some(e => e === 'avanzado' || e === 'todos')) {
+        return false;
+      }
+    }
   }
 
   // 4. Participant Count Constraints
@@ -115,8 +139,6 @@ export function isDynamicSuitable(dynamic: DynamicType, formData: any): boolean 
   const requiresSpecialized = dynamic.requiresSpecializedFacilitator;
   const hasSpecializedFacilitator = formData.hasSpecializedFacilitator === true || formData.hasSpecializedFacilitator === 'true';
   if (requiresSpecialized && !hasSpecializedFacilitator) {
-    // If specialized facilitator is required but not present, check if we can still use it (or strict exclude)
-    // For safety, let's disallow if the risk level is high
     if (dynamic.riskLevel === 'alto') {
       return false;
     }
@@ -140,18 +162,48 @@ export function scoreDynamic(
 
   let score = 0;
 
+  const considerations = Array.isArray(formData.specialConsiderations)
+    ? formData.specialConsiderations
+    : (formData.specialConsiderations ? [formData.specialConsiderations] : []);
+
+  const dId = dynamic.id;
+  const title = dynamic.title.toLowerCase();
+  const intention = dynamic.intention.toLowerCase();
+  const description = dynamic.description.toLowerCase();
+
   // 1. Goal Coincidence
   if (formData.goal) {
     const goalLower = formData.goal.toLowerCase();
-    const intentionLower = dynamic.intention.toLowerCase();
-    const descriptionLower = dynamic.description.toLowerCase();
     
     // Check key terms
     const keywords = goalLower.split(/\s+/).filter((w: string) => w.length > 4);
     keywords.forEach((word: string) => {
-      if (intentionLower.includes(word)) score += 2;
-      if (descriptionLower.includes(word)) score += 1;
+      if (intention.includes(word)) score += 3;
+      if (description.includes(word)) score += 1;
     });
+
+    // Handle specific connection, listening, or trust goals
+    if (goalLower.includes("conexión") || goalLower.includes("conexion") || goalLower.includes("confianza") || goalLower.includes("escucha")) {
+      if (dynamic.module === "Conexión Grupal" || dynamic.phases.includes("conexion")) {
+        score += 8;
+      }
+      if (goalLower.includes("escucha") && dId === "dynamic_014") {
+        score += 10; // Extra boost for Active Listening
+      }
+      if (goalLower.includes("confianza")) {
+        if (dId === "dynamic_011" || dId === "dynamic_013" || dId === "dynamic_016" || dId === "dynamic_019" || dId === "dynamic_020") {
+          score += 6;
+        }
+      }
+    }
+    if (goalLower.includes("vulnerabilidad")) {
+      if (dynamic.emotionalIntensity === "profunda") {
+        score += 8;
+      }
+      if (dId === "dynamic_020" || dId === "dynamic_018" || dId === "dynamic_011") {
+        score += 10; // Extra boost for Deep Questions, Me Too, and Story Weaving
+      }
+    }
   }
 
   // 2. Location Alignment
@@ -170,6 +222,9 @@ export function scoreDynamic(
   if (phase === 'Apertura' && (dynamic.module.toLowerCase().includes('apertura') || dynamic.module.toLowerCase().includes('bienvenida'))) {
     score += 15;
   }
+  if (phase === 'Conexión' && (dynamic.module.toLowerCase().includes('conexión') || dynamic.module.toLowerCase().includes('conexion'))) {
+    score += 15;
+  }
 
   // 4. Experience Level matching
   const exp = (formData.experienceLevel || '').toLowerCase();
@@ -179,6 +234,42 @@ export function scoreDynamic(
     score += 4;
   } else if (exp.includes('avanzado') && dynamic.experienceLevels.some(e => e === 'avanzado' || e === 'todos')) {
     score += 4;
+  }
+
+  // 5. Group Relation / Familiarity
+  const relation = (formData.groupRelation || '').toLowerCase();
+  if (relation.includes("no se conocen") || relation.includes("nuevo")) {
+    // If they don't know each other, prioritize presentation and icebreaker-like connection dynamics
+    if (dId === "dynamic_012" || dId === "dynamic_001") {
+      score += 12; // Mi Nombre, Mi Energía and Círculo del Nombre is fantastic for new groups!
+    }
+    if (dynamic.module.includes("Apertura")) {
+      score += 10;
+    }
+    // Penalize very deep vulnerability questions for new groups
+    if (dynamic.emotionalIntensity === "profunda" || dId === "dynamic_020") {
+      score -= 15;
+    }
+  } else if (relation.includes("ya se conocen") || relation.includes("consolidado") || relation.includes("confianza")) {
+    // If they are a consolidated group, prioritize deeper trust/listening connection dynamics
+    if (dId === "dynamic_014" || dId === "dynamic_011" || dId === "dynamic_019" || dId === "dynamic_020" || dId === "dynamic_018") {
+      score += 10;
+    }
+  }
+
+  // 6. Materials Constraints
+  const hasNoMaterials = considerations.some((c: string) => 
+    c.toLowerCase().includes("sin materiales") || 
+    c.toLowerCase().includes("no materiales") ||
+    c.toLowerCase().includes("sin materiales disponibles")
+  );
+
+  if (hasNoMaterials) {
+    if (dynamic.materials.length === 0) {
+      score += 15; // Give high priority to material-free activities
+    } else {
+      score -= 25; // Heavily penalize activities requiring cardboards, envelopes, yarn, etc.
+    }
   }
 
   return score;
