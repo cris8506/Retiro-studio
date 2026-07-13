@@ -5,28 +5,58 @@ import { generateRetreatWithoutAI, scoreDynamic } from "./_lib/generatorNoAi.js"
 // Centralized Gemini model constant as requested
 const GEMINI_MODEL = "gemini-3.5-flash";
 
-// Score and pre-select 8-12 relevant dynamics from the database based on retreat attributes to reduce input token footprint
+// Score and pre-select a diverse, balanced and highly relevant set of dynamics from the database (up to 40 items)
 const getSelectedDynamicsContext = (
   formData: any,
-  limit = 9
+  limit = 40
 ) => {
-  const scored = OFFICIAL_DYNAMICS.map(d => {
-    // Score with our advanced scoreDynamic function using 'Conexión' as a neutral phase for pre-selection
-    const score = scoreDynamic(d, formData, 'Conexión');
-    return { dynamic: d, score };
+  const phases = [
+    'Apertura',
+    'Conexión',
+    'Activación',
+    'Profundización',
+    'Reflexión',
+    'Cierre'
+  ];
+
+  const uniqueSelected = new Map<string, any>();
+
+  // For each key phase of the retreat, select the top suitable dynamics to ensure complete and balanced coverage
+  phases.forEach(phase => {
+    const scored = OFFICIAL_DYNAMICS.map(d => {
+      // Score with our advanced scoreDynamic function using the current phase
+      const baseScore = scoreDynamic(d, formData, phase);
+      
+      // Add a tiny random variation to break ties and introduce freshness/customization across generations
+      const tieBreaker = Math.random() * 0.5;
+      const score = baseScore + tieBreaker;
+      
+      return { dynamic: d, score };
+    });
+
+    // Filter out incompatible ones (score <= -50)
+    const filtered = scored.filter(x => x.score > -50);
+    
+    // Sort descending by score
+    filtered.sort((a, b) => b.score - a.score);
+
+    // Take top 8 matching dynamics for this phase
+    const topForPhase = filtered.slice(0, 8);
+    
+    topForPhase.forEach(item => {
+      const existing = uniqueSelected.get(item.dynamic.id);
+      if (!existing || existing.score < item.score) {
+        uniqueSelected.set(item.dynamic.id, item);
+      }
+    });
   });
 
-  // Filter out any hard excluded dynamics (score <= -50)
-  const filtered = scored.filter(x => x.score > -50);
-  
-  // If we filtered out too many, fall back to scored to avoid empty lists
-  const finalScored = filtered.length > 0 ? filtered : scored;
+  // Get all unique selected items and sort them descending by score
+  const allSelected = Array.from(uniqueSelected.values());
+  allSelected.sort((a, b) => b.score - a.score);
 
-  // Sort descending by score
-  finalScored.sort((a, b) => b.score - a.score);
-
-  // Take the slice
-  const selected = finalScored.slice(0, limit).map(x => x.dynamic);
+  // Take the slice up to the requested limit (e.g. 40)
+  const selected = allSelected.slice(0, limit).map(x => x.dynamic);
 
   // Format only essential properties (saving up to 80% input tokens per dynamic)
   const contextString = selected.map(d => {
@@ -141,10 +171,10 @@ export default async function handler(req: any, res: any) {
     const requestedDuration = Number(duration) || 3;
     const requestedCount = Number(participantsCount) || 15;
 
-    // Smart pre-selection of 9 dynamics (within the 8-12 range)
+    // Smart pre-selection of 40 dynamics to ensure robust phase and category coverage
     const { contextString: dynamicsContext, selectedCount } = getSelectedDynamicsContext(
       req.body,
-      9
+      40
     );
 
     console.log(`[generate-retreat] Pre-selected ${selectedCount} of ${OFFICIAL_DYNAMICS.length} dynamics for optimization.`);

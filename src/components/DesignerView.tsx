@@ -23,9 +23,9 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
     duration: 3,
     participantsCount: 15,
     participantsAge: '30 - 50 años',
-    participantsProfile: 'Coaches, profesionales estresados, líderes de bienestar',
+    participantsProfile: 'Coaches',
     experienceLevel: 'Principiante a Intermedio',
-    locationType: 'mixto',
+    locationType: 'Mixto',
     desiredEnergy: 'Serena y contemplativa',
     emotionalIntensity: 'Moderada',
     participantRelationship: 'No se conocen'
@@ -280,14 +280,21 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
           </div>
 
           <div id="field-participantsProfile" className="space-y-1.5 md:col-span-2">
-            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Perfil del Participante</label>
-            <input 
-              type="text" 
-              placeholder="Ej: Emprendedores cansados, terapeutas con burnout, público general buscando paz"
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">PERFIL DE LOS PARTICIPANTES</label>
+            <select 
               value={formData.participantsProfile}
               onChange={e => setFormData({...formData, participantsProfile: e.target.value})}
               className={`w-full bg-gray-50 border ${errors.participantsProfile ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
-            />
+            >
+              <option value="Coaches">Coaches</option>
+              <option value="Terapeutas">Terapeutas</option>
+              <option value="Mujeres emprendedoras">Mujeres emprendedoras</option>
+              <option value="Personas con altos niveles de estrés">Personas con altos niveles de estrés</option>
+              <option value="Sin experiencia en retiros">Sin experiencia en retiros</option>
+              <option value="Personas en búsqueda de crecimiento personal">Personas en búsqueda de crecimiento personal</option>
+              <option value="Líderes y emprendedores">Líderes y emprendedores</option>
+              <option value="Profesionales con alto nivel de estrés laboral">Profesionales con alto nivel de estrés laboral</option>
+            </select>
             {errors.participantsProfile && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.participantsProfile}</p>}
           </div>
 
@@ -298,15 +305,15 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
               onChange={e => setFormData({...formData, locationType: e.target.value})}
               className={`w-full bg-gray-50 border ${errors.locationType ? 'border-red-500' : 'border-gray-200'} rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#154539] focus:outline-none`}
             >
-              <option value="espacio cerrado">espacio cerrado</option>
-              <option value="espacio abierto">espacio abierto</option>
-              <option value="mixto">mixto</option>
+              <option value="Espacio cerrado">Espacio cerrado</option>
+              <option value="Espacio abierto">Espacio abierto</option>
+              <option value="Mixto">Mixto</option>
             </select>
             {errors.locationType && <p className="text-red-500 text-xs font-semibold mt-1 block animate-fade-in">{errors.locationType}</p>}
           </div>
 
           <div id="field-experienceLevel" className="space-y-1.5">
-            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">Nivel de Experiencia</label>
+            <label className="text-xs font-bold text-[#154539] uppercase tracking-wider">NIVEL DE EXPERIENCIA DEL FACILITADOR</label>
             <select 
               value={formData.experienceLevel}
               onChange={e => setFormData({...formData, experienceLevel: e.target.value})}

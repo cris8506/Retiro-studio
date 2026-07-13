@@ -574,7 +574,7 @@ function findBestDynamic(
 
   const scored = available.map(d => ({
     dynamic: d,
-    score: scoreDynamic(d, formData, phase, previousIntensity)
+    score: scoreDynamic(d, formData, phase, previousIntensity) + (Math.random() * 0.5)
   }));
 
   scored.sort((a, b) => b.score - a.score);

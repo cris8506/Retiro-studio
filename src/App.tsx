@@ -34,7 +34,7 @@ export default function App() {
     duration: 3,
     participantsCount: 15,
     participantsAge: '30 - 50 años',
-    participantsProfile: 'Coaches, profesionales estresados, líderes de bienestar',
+    participantsProfile: 'Coaches',
     experienceLevel: 'Principiante a Intermedio',
     locationType: 'Naturaleza (Bosque templado)',
     desiredEnergy: 'Serena, introspectiva pero conectada',
@@ -60,20 +60,13 @@ export default function App() {
 
   const [isUsingSynth, setIsUsingSynth] = useState<boolean>(false);
 
-  const EMPTY_TRACK_IDS = useRef<Set<string>>(new Set([
-    'music_006', // Meditation Healing
-    'music_007', // Handpan Meditation 432Hz
-    'music_008', // Relaxing Handpan Piano Music
-    'music_009', // A Love Theme
-    'music_010', // You and Me
-    'music_011', // Possible Dreams
-    'music_012', // Staring at the Night Sky
-    'music_013', // Drawing the Sky
-    'music_014'  // Silent Descent
-  ]));
+  const EMPTY_TRACK_IDS = useRef<Set<string>>(new Set([]));
 
   const synthRef = useRef<NeuroacousticSynth | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevTrackIdRef = useRef<string | null>(null);
+  const handleTrackEndedRef = useRef<() => void>(() => {});
+  const handleAudioErrorRef = useRef<() => void>(() => {});
 
   // Initialize synth on mount
   useEffect(() => {
@@ -150,18 +143,13 @@ export default function App() {
     };
 
     const handleEnded = () => {
-      handleTrackEnded();
+      handleTrackEndedRef.current();
     };
 
     const handleErr = () => {
       if (audio.src && audio.src !== window.location.href) {
         console.error("Audio player loading error. Switching to synthesized atmosphere fallback.");
-        // Mark as synth track dynamically so the synthesizer takes over
-        setIsUsingSynth(true);
-        setTotalDuration(300);
-        if (synthRef.current && isPlaying && activeTrack) {
-          synthRef.current.start(activeTrack.category, soundIntensity / 100);
-        }
+        handleAudioErrorRef.current();
       }
     };
 
@@ -172,64 +160,106 @@ export default function App() {
 
     return () => {
       audio.pause();
+      audio.src = "";
       audio.removeEventListener('timeupdate', handleTime);
       audio.removeEventListener('loadedmetadata', handleMeta);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleErr);
     };
-  }, [activeTrack, isPlaying, loopMode]);
+  }, []);
+
+  // Update dynamic audio error closure ref
+  useEffect(() => {
+    handleAudioErrorRef.current = () => {
+      setIsUsingSynth(true);
+      setTotalDuration(300);
+      if (synthRef.current && isPlaying && activeTrack) {
+        synthRef.current.start(activeTrack.category, soundIntensity / 100);
+      }
+    };
+  }, [isPlaying, activeTrack, soundIntensity]);
 
   // Main Audio & Synthesizer action coordinator
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Shut down current synth play first
-    if (synthRef.current) {
-      synthRef.current.stop();
-    }
-    audio.pause();
-
     if (!activeTrack) {
+      if (synthRef.current) {
+        synthRef.current.stop();
+      }
+      audio.pause();
+      audio.src = "";
       setIsUsingSynth(false);
       setCurrentTime(0);
       setTotalDuration(0);
       setTrackError(null);
+      prevTrackIdRef.current = null;
       return;
     }
 
     const isSynth = EMPTY_TRACK_IDS.current.has(activeTrack.id);
+    const trackChanged = prevTrackIdRef.current !== activeTrack.id;
+    prevTrackIdRef.current = activeTrack.id;
+
     setIsUsingSynth(isSynth);
 
-    if (isSynth) {
-      // Clear out the standard player source
-      audio.src = "";
-      setCurrentTime(0);
-      setTotalDuration(300); // 5 minutes virtual track
-      setTrackError(null);
+    if (trackChanged) {
+      if (synthRef.current) {
+        synthRef.current.stop();
+      }
+      audio.pause();
 
-      if (isPlaying && synthRef.current) {
-        synthRef.current.start(activeTrack.category, soundIntensity / 100);
+      if (isSynth) {
+        audio.src = "";
+        setCurrentTime(0);
+        setTotalDuration(300); // 5 minutes virtual track
+        setTrackError(null);
+
+        if (isPlaying && synthRef.current) {
+          synthRef.current.start(activeTrack.category, soundIntensity / 100);
+        }
+      } else {
+        const encodedUrl = encodeURI(activeTrack.audioUrl || '');
+        audio.src = encodedUrl;
+        audio.load();
+        audio.volume = soundIntensity / 100;
+        setCurrentTime(0);
+        setTotalDuration(0);
+        setTrackError(null);
+
+        if (isPlaying) {
+          audio.play().catch(err => {
+            console.warn("Playback failed. Activating live synthesized audio stream instead.", err);
+            setIsUsingSynth(true);
+            setTotalDuration(300);
+            if (synthRef.current) {
+              synthRef.current.start(activeTrack.category, soundIntensity / 100);
+            }
+          });
+        }
       }
     } else {
-      // Load standard file
-      const encodedUrl = encodeURI(activeTrack.audioUrl || '');
-      audio.src = encodedUrl;
-      audio.load();
-      audio.volume = soundIntensity / 100;
-      setCurrentTime(0);
-      setTotalDuration(0);
-      setTrackError(null);
-
-      if (isPlaying) {
-        audio.play().catch(err => {
-          console.warn("Playback failed. Activating live synthesized audio stream instead.", err);
-          setIsUsingSynth(true);
-          setTotalDuration(300);
+      // Same track, only isPlaying state changed
+      if (isSynth) {
+        if (isPlaying) {
           if (synthRef.current) {
             synthRef.current.start(activeTrack.category, soundIntensity / 100);
           }
-        });
+        } else {
+          if (synthRef.current) {
+            synthRef.current.stop();
+          }
+        }
+      } else {
+        if (isPlaying) {
+          audio.volume = soundIntensity / 100;
+          audio.play().catch(err => {
+            console.warn("Playback failed on toggle play.", err);
+          });
+        } else {
+          audio.pause();
+        }
       }
     }
   }, [activeTrack, isPlaying]);
@@ -296,6 +326,11 @@ export default function App() {
       }
     }
   };
+
+  // Keep handleTrackEndedRef updated with the latest function closure
+  useEffect(() => {
+    handleTrackEndedRef.current = handleTrackEnded;
+  }, [handleTrackEnded]);
 
   const fetchRetreats = async () => {
     setRetreatsStatus('loading');

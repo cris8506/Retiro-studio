@@ -2,9 +2,133 @@ import React, { useState } from 'react';
 import { 
   CheckCircle, Plus, Trash2, Calendar, Users, MapPin, 
   Sparkles, Music, Star, Edit, Volume2, FileText, CheckSquare, Clock,
-  ChevronDown, ChevronUp, Check, Compass, BookOpen
+  ChevronDown, ChevronUp, Check, Compass, BookOpen, Play, Pause, VolumeX,
+  AlertTriangle
 } from 'lucide-react';
-import { Retreat, MusicTrack, RetreatActivity } from '../types';
+import { Retreat, MusicTrack, RetreatActivity, Dynamic } from '../types';
+import { OFFICIAL_PLAYLISTS } from '../data/music';
+import { OFFICIAL_DYNAMICS } from '../data/dynamics';
+
+const findMatchingDynamic = (activity: RetreatActivity): Dynamic | null => {
+  if (!activity) return null;
+  
+  // 1. Match by dynamicId
+  if (activity.dynamicId) {
+    const found = OFFICIAL_DYNAMICS.find(d => d.id === activity.dynamicId);
+    if (found) return found;
+  }
+  
+  // 2. Match by exact title / dynamicName
+  const titleLower = (activity.title || '').toLowerCase().trim();
+  const dynNameLower = (activity.dynamicName || '').toLowerCase().trim();
+  
+  if (titleLower) {
+    const found = OFFICIAL_DYNAMICS.find(d => d.name.toLowerCase().trim() === titleLower);
+    if (found) return found;
+  }
+  
+  if (dynNameLower) {
+    const found = OFFICIAL_DYNAMICS.find(d => d.name.toLowerCase().trim() === dynNameLower);
+    if (found) return found;
+  }
+  
+  // 3. Match by partial title
+  if (titleLower) {
+    const found = OFFICIAL_DYNAMICS.find(d => 
+      titleLower.includes(d.name.toLowerCase().trim()) || 
+      d.name.toLowerCase().trim().includes(titleLower)
+    );
+    if (found) return found;
+  }
+  
+  return null;
+};
+
+const isMusicNeededForActivity = (activity: RetreatActivity): boolean => {
+  const title = (activity.title || '').toLowerCase();
+  const recommended = (activity.recommendedMusic || '').toLowerCase();
+  
+  if (recommended.includes('silencio') || recommended.includes('no requiere') || recommended.includes('ninguno') || recommended.includes('sin música') || recommended.includes('sin musica')) {
+    return false;
+  }
+  
+  const noMusicKeywords = [
+    'desayuno', 'almuerzo', 'cena', 'comida', 'snack', 'receso', 
+    'tiempo libre', 'descanso', 'dormir', 'libre', 'transición', 
+    'check-in', 'registro', 'despedida individual', 'silencio absoluto'
+  ];
+  
+  if (noMusicKeywords.some(keyword => title.includes(keyword))) {
+    return false;
+  }
+  
+  return true;
+};
+
+const findMatchingTrack = (activity: RetreatActivity): MusicTrack | null => {
+  if (!isMusicNeededForActivity(activity)) return null;
+
+  const recommendedMusic = activity.recommendedMusic || '';
+  const title = activity.title || '';
+  const emotionalGoal = activity.emotionalGoal || '';
+  
+  const musicLower = recommendedMusic.toLowerCase();
+  const titleLower = title.toLowerCase();
+  const goalLower = emotionalGoal.toLowerCase();
+  
+  // 1. Try to match by explicit track ID if present
+  let match = OFFICIAL_PLAYLISTS.find(t => musicLower.includes(t.id.toLowerCase()));
+  if (match) return match;
+
+  // 2. Try to match by explicit title of the track
+  match = OFFICIAL_PLAYLISTS.find(t => 
+    musicLower.includes(t.title.toLowerCase()) || 
+    t.title.toLowerCase().includes(musicLower)
+  );
+  if (match) return match;
+
+  // 3. Try to match by artist
+  match = OFFICIAL_PLAYLISTS.find(t => 
+    musicLower.includes(t.artist.toLowerCase())
+  );
+  if (match) return match;
+
+  // 4. Try to match by keyword in recommendedMusic, title, or emotionalGoal
+  const textToSearch = `${recommendedMusic} ${title} ${emotionalGoal}`.toLowerCase();
+  
+  let categoryKey: MusicTrack['category'] | null = null;
+  
+  if (textToSearch.includes('bienvenida') || textToSearch.includes('recepción') || textToSearch.includes('registro') || textToSearch.includes('llegada')) {
+    categoryKey = 'Bienvenida';
+  } else if (textToSearch.includes('apertura') || textToSearch.includes('inicio') || textToSearch.includes('ceremonia') || textToSearch.includes('ritual')) {
+    categoryKey = 'Apertura';
+  } else if (textToSearch.includes('meditaci') || textToSearch.includes('zen') || textToSearch.includes('visualizaci') || textToSearch.includes('silencio')) {
+    categoryKey = 'Meditación';
+  } else if (textToSearch.includes('respiraci') || textToSearch.includes('breath') || textToSearch.includes('coherencia') || textToSearch.includes('pranayama')) {
+    categoryKey = 'Respiración';
+  } else if (textToSearch.includes('conexi') || textToSearch.includes('pareja') || textToSearch.includes('grupo') || textToSearch.includes('vínculo') || textToSearch.includes('amor')) {
+    categoryKey = 'Conexión';
+  } else if (textToSearch.includes('reflexi') || textToSearch.includes('journal') || textToSearch.includes('escritura') || textToSearch.includes('introspecci') || textToSearch.includes('sueño') || textToSearch.includes('contemplación')) {
+    categoryKey = 'Reflexión';
+  } else if (textToSearch.includes('liberaci') || textToSearch.includes('emocional') || textToSearch.includes('soltar') || textToSearch.includes('sanación') || textToSearch.includes('descent')) {
+    categoryKey = 'Liberación';
+  } else if (textToSearch.includes('movimiento') || textToSearch.includes('danza') || textToSearch.includes('baile') || textToSearch.includes('activaci') || textToSearch.includes('dance') || textToSearch.includes('alive')) {
+    categoryKey = 'Movimiento';
+  } else if (textToSearch.includes('gratitud') || textToSearch.includes('agradecer') || textToSearch.includes('apreciaci') || textToSearch.includes('joy')) {
+    categoryKey = 'Gratitud';
+  } else if (textToSearch.includes('cierre') || textToSearch.includes('despedida') || textToSearch.includes('final') || textToSearch.includes('lullaby')) {
+    categoryKey = 'Cierre';
+  }
+
+  if (categoryKey) {
+    const categoryTracks = OFFICIAL_PLAYLISTS.filter(t => t.category === categoryKey);
+    if (categoryTracks.length > 0) {
+      return categoryTracks[0];
+    }
+  }
+
+  return OFFICIAL_PLAYLISTS[0];
+};
 
 interface DashboardViewProps {
   retreat: Retreat;
@@ -450,6 +574,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="space-y-4 text-left">
               {currentDayBlock?.activities.map((activity, index) => {
                 const isOpen = openActivityId === activity.id;
+                const matchedDynamic = findMatchingDynamic(activity);
                 return (
                   <div 
                     key={activity.id || index} 
@@ -501,12 +626,65 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Objetivo Emocional</h5>
                             <p className="text-xs text-gray-700 font-light mt-1">{activity.emotionalGoal}</p>
                           </div>
-                          <div className="bg-white p-3.5 rounded-lg border border-gray-100">
-                            <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Música Sugerida</h5>
-                            <p className="text-xs text-gray-700 font-light mt-1 flex items-center">
-                              <Music className="w-3.5 h-3.5 mr-1 text-[#154539]" />
-                              {activity.recommendedMusic || 'Ambiente natural en silencio'}
-                            </p>
+                          <div className="bg-white p-3.5 rounded-lg border border-gray-100 flex flex-col justify-between min-h-[70px]">
+                            {(() => {
+                              const track = findMatchingTrack(activity);
+                              const isCurrentTrackPlaying = track && activeTrack?.id === track.id && isPlaying;
+                              return (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <h5 className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">Música Sugerida</h5>
+                                    {track && (
+                                      <span className="text-[8px] px-1.5 py-0.25 bg-[#154539]/10 text-[#154539] rounded font-medium">
+                                        {track.category}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {track ? (
+                                    <div className="flex items-center justify-between mt-1 gap-2">
+                                      <div className="flex items-center space-x-2 overflow-hidden flex-1">
+                                        <div className={`p-1.5 rounded-lg flex items-center justify-center flex-shrink-0 ${isCurrentTrackPlaying ? 'bg-[#C5A059]/10 text-[#C5A059] animate-pulse' : 'bg-[#154539]/10 text-[#154539]'}`}>
+                                          <Music className="w-4 h-4" />
+                                        </div>
+                                        <div className="text-left overflow-hidden">
+                                          <p className="text-xs font-semibold text-gray-700 truncate" title={track.title}>{track.title}</p>
+                                          <p className="text-[10px] text-gray-500 font-light truncate" title={track.artist}>{track.artist}</p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onPlayTrack(track);
+                                        }}
+                                        className={`p-1.5 md:p-2 rounded-full transition-all flex items-center justify-center cursor-pointer flex-shrink-0 ${
+                                          isCurrentTrackPlaying 
+                                            ? 'bg-red-500 text-white hover:bg-red-600' 
+                                            : 'bg-[#154539] text-white hover:bg-[#1a5143] hover:scale-105 active:scale-95'
+                                        }`}
+                                        title={isCurrentTrackPlaying ? 'Pausar música' : 'Reproducir música'}
+                                      >
+                                        {isCurrentTrackPlaying ? (
+                                          <Pause className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <Play className="w-3.5 h-3.5 pl-0.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center space-x-2 mt-1.5">
+                                      <div className="p-1.5 bg-gray-50 rounded-lg text-gray-400 flex items-center justify-center flex-shrink-0">
+                                        <VolumeX className="w-4 h-4" />
+                                      </div>
+                                      <div className="text-left">
+                                        <p className="text-xs font-semibold text-gray-700">Silencio / Sonido natural</p>
+                                        <p className="text-[10px] text-gray-500 font-light">Práctica sin música ambiental</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -517,6 +695,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             {activity.preparation}
                           </p>
                         </div>
+
+                        {/* Official Dynamic Library details if matched */}
+                        {matchedDynamic && (
+                          <div className="bg-[#154539]/5 rounded-xl border border-[#154539]/10 p-4 md:p-5 space-y-4 text-left">
+                            <div className="flex items-center space-x-2 border-b border-[#154539]/10 pb-3">
+                              <BookOpen className="w-4 h-4 text-[#C5A059]" />
+                              <h5 className="font-serif text-sm font-bold text-[#154539]">
+                                Guía de la Dinámica Oficial: <span className="text-[#C5A059]">{matchedDynamic.name}</span>
+                              </h5>
+                            </div>
+
+                            {/* Context & Avoid Warning Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+                              <div className="bg-white p-3 rounded-lg border border-gray-100">
+                                <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider block">Momento de Aplicación</span>
+                                <p className="text-gray-700 font-light mt-1 leading-relaxed">{matchedDynamic.whenToUse}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-gray-100">
+                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider block flex items-center">
+                                  <AlertTriangle className="w-3.5 h-3.5 mr-1 text-red-500" /> Evitar si (Contraindicaciones)
+                                </span>
+                                <p className="text-gray-700 font-light mt-1 leading-relaxed">{matchedDynamic.whenToAvoid}</p>
+                              </div>
+                            </div>
+
+                            {/* Step-by-Step Instructions */}
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] font-bold text-[#154539] uppercase tracking-wider block">Paso a Paso Detallado (Instrucciones de Ejecución)</span>
+                              <ol className="list-decimal list-inside space-y-2 bg-white p-4 rounded-lg border border-gray-100 text-xs">
+                                {matchedDynamic.steps.map((step, sIdx) => (
+                                  <li key={sIdx} className="text-gray-700 font-light leading-relaxed pl-1">
+                                    {step}
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+
+                            {/* Variations / Adaptations if present */}
+                            {matchedDynamic.variations && matchedDynamic.variations.length > 0 && (
+                              <div className="space-y-1 bg-white p-3 rounded-lg border border-gray-100 text-xs">
+                                <span className="text-[9px] font-bold text-[#C5A059] uppercase tracking-wider block">Variaciones o Adaptaciones Sugeridas</span>
+                                <ul className="list-disc list-inside space-y-1 mt-1 text-gray-700 font-light leading-relaxed">
+                                  {matchedDynamic.variations.map((v, vIdx) => (
+                                    <li key={vIdx}>{v}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Script Block (The First Person script highlighted in beautiful italic) */}
                         {activity.script && (
