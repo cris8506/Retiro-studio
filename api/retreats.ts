@@ -103,8 +103,15 @@ export default function handler(req: any, res: any) {
       return res.status(200).json(newRetreat);
     }
     return res.status(400).json({ error: "Formato de retiro inválido." });
+  } else if (req.method === 'DELETE') {
+    const id = req.query.id || req.body?.id;
+    if (id) {
+      retreatsList = retreatsList.filter(r => r.id !== id);
+      return res.status(200).json({ success: true, message: `Retiro ${id} eliminado.` });
+    }
+    return res.status(400).json({ error: "Falta el ID del retiro para eliminar." });
   } else {
-    res.setHeader('Allow', ['GET', 'POST']);
+    res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

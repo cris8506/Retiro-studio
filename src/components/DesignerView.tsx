@@ -90,21 +90,21 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
     const activeUseAI = useAIOverride !== undefined ? useAIOverride : false;
 
     setIsGenerating(true);
-    setGenerationPhase(activeUseAI ? 'Sincronizando intenciones...' : 'Construyendo estructura algorítmica sin IA...');
+    setGenerationPhase('Reuniendo todos los datos para armar el retiro...');
     
-    // Simulate beautiful breathing intervals
+    // Simulate beautiful breathing intervals during the 4 seconds of "thinking"
     const phases = activeUseAI ? [
-      'Analizando perfil de los participantes...',
-      'Consultando la Biblioteca oficial de Retiro Studio...',
-      'Estructurando transiciones y niveles de energía...',
-      'Redactando guiones de facilitación en primera persona...',
-      'Consolidando la lista de materiales y suministros...'
+      'Recopilando datos del formulario y perfil de participantes...',
+      'Analizando intenciones y objetivo principal del contenedor...',
+      'Consultando la Biblioteca oficial de Retiro Studio para seleccionar dinámicas perfectas...',
+      'Estructurando la agenda de actividades y equilibrando curvas de energía...',
+      'Consolidando guiones de facilitación, lista de materiales y suministros...'
     ] : [
-      'Consultando matriz de compatibilidad somática...',
-      'Equilibrando curvas de intensidad emocional...',
-      'Asignando recursos e instrumentos de la biblioteca...',
-      'Programando pausas logísticas y de alimentación...',
-      'Finalizando agenda autónoma sin IA...'
+      'Compilando parámetros del formulario sin conexión...',
+      'Calculando curvas de intensidad emocional de cada jornada...',
+      'Asignando recursos e instrumentos de la biblioteca local...',
+      'Programando pausas, alimentación y tiempos de integración...',
+      'Estructurando propuesta de agenda autónoma y lista de materiales...'
     ];
 
     let phaseIndex = 0;
@@ -113,7 +113,7 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
         setGenerationPhase(phases[phaseIndex]);
         phaseIndex++;
       }
-    }, 1200);
+    }, 800); // 800ms * 5 phases = 4000ms
 
     try {
       const finalExpectedResults = expectedResults.map(res => 
@@ -124,16 +124,20 @@ export const DesignerView: React.FC<DesignerViewProps> = ({
         con === "Otra consideración" ? otherConsiderationText.trim() : con
       );
 
-      const response = await fetch('/api/generate-retreat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          expectedResults: finalExpectedResults,
-          specialConsiderations: finalSpecialConsiderations,
-          useAI: activeUseAI
-        })
-      });
+      // Esperamos al menos 4 segundos para dar la sensación de que procesa y reúne toda la información
+      const [response] = await Promise.all([
+        fetch('/api/generate-retreat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            expectedResults: finalExpectedResults,
+            specialConsiderations: finalSpecialConsiderations,
+            useAI: activeUseAI
+          })
+        }),
+        new Promise(resolve => setTimeout(resolve, 4000))
+      ]);
 
       const data = await response.json();
       clearInterval(interval);

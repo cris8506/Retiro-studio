@@ -135,6 +135,7 @@ interface DashboardViewProps {
   retreats: Retreat[];
   onSelectRetreat: (retreat: Retreat) => void;
   onUpdateRetreat: (updated: Retreat) => void;
+  onDeleteRetreat: (id: string) => void;
   onViewChange: (view: string) => void;
   onPlayTrack: (track: MusicTrack) => void;
   activeTrack: MusicTrack | null;
@@ -146,11 +147,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   retreats,
   onSelectRetreat,
   onUpdateRetreat,
+  onDeleteRetreat,
   onViewChange,
   onPlayTrack,
   activeTrack,
   isPlaying
 }) => {
+  // Local state for deleting retreat confirmation
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   // Local state for adding materials
   const [newMaterial, setNewMaterial] = useState('');
   // Local state for adding notes
@@ -186,6 +190,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const [materialsInput, setMaterialsInput] = useState('');
   const [questionsInput, setQuestionsInput] = useState('');
+
+  // Local state for managing participants
+  const [showAddParticipantForm, setShowAddParticipantForm] = useState(false);
+  const [newParticipantName, setNewParticipantName] = useState('');
+  const [newParticipantDiet, setNewParticipantDiet] = useState('');
+  const [newParticipantReq, setNewParticipantReq] = useState('');
+
+  const handleAddParticipant = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newParticipantName.trim()) return;
+
+    const newP = {
+      name: newParticipantName.trim(),
+      dietary: newParticipantDiet.trim() || 'Estándar',
+      restrictions: newParticipantReq.trim() || 'Ninguno'
+    };
+
+    const updatedParticipants = [...(retreat.participantsList || []), newP];
+    
+    onUpdateRetreat({
+      ...retreat,
+      participantsList: updatedParticipants
+    });
+
+    // Reset Form
+    setNewParticipantName('');
+    setNewParticipantDiet('');
+    setNewParticipantReq('');
+    setShowAddParticipantForm(false);
+  };
+
+  const handleDeleteParticipant = (indexToDelete: number) => {
+    const updatedParticipants = (retreat.participantsList || []).filter((_, idx) => idx !== indexToDelete);
+    onUpdateRetreat({
+      ...retreat,
+      participantsList: updatedParticipants
+    });
+  };
 
   // Find active day block safely, fallback if the tab index is out of bounds
   const currentDayBlock = (retreat && retreat.agenda) 
@@ -435,7 +477,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div id="dashboard-view-root" className="space-y-8 animate-fade-in">
       
       {/* Selector de Retiro Activo */}
-      <div id="retreat-selector-bar" className="bg-white rounded-2xl border border-gray-100 p-4.5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div id="retreat-selector-bar" className="bg-white rounded-2xl border border-[#154539]/15 hover:border-[#C5A059]/40 p-4.5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-all duration-300">
         <div className="flex items-center space-x-3.5">
           <div className="p-2.5 bg-[#154539]/10 rounded-xl text-[#154539] flex items-center justify-center">
             <Compass className="w-5 h-5 animate-spin-slow" />
@@ -454,6 +496,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               if (selected) {
                 onSelectRetreat(selected);
                 setActiveDayTab(1); // reset active day tab to 1
+                setIsConfirmingDelete(false);
               }
             }}
             className="bg-[#F7F4EC] text-xs font-semibold text-[#154539] border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-1 focus:ring-[#154539] focus:outline-none min-w-[200px]"
@@ -465,6 +508,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <option value="">No hay retiros creados</option>
             )}
           </select>
+
+          {retreats.length > 0 && retreat?.id && (
+            <div className="flex items-center">
+              {!isConfirmingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(true)}
+                  className="p-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-all border border-red-100 hover:border-red-200 cursor-pointer flex items-center justify-center"
+                  title="Eliminar este retiro"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-red-50/70 border border-red-100 p-1 rounded-xl animate-fade-in">
+                  <span className="text-[10px] font-bold text-red-800 px-2 uppercase tracking-wide">¿Borrar?</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDeleteRetreat(retreat.id);
+                      setIsConfirmingDelete(false);
+                    }}
+                    className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    Sí
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-700 text-[10px] font-bold rounded-lg transition-colors border border-gray-200 cursor-pointer"
+                  >
+                    No
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             onClick={() => onViewChange('designer')}
@@ -948,19 +1027,110 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           </div>
 
-          {/* Quick Participants Block */}
-          {retreat?.participantsList && retreat.participantsList.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-left">
-              <h3 className="font-serif text-xl font-bold text-[#154539] mb-4 flex items-center">
+          {/* Interactive Participants Manager Block */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-left">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h3 className="font-serif text-xl font-bold text-[#154539] flex items-center">
                 <Users className="w-5 h-5 mr-2 text-[#C5A059]" />
-                Fichas de Participantes Críticos
+                Fichas de Participantes
               </h3>
+              {!showAddParticipantForm && (
+                <button
+                  onClick={() => setShowAddParticipantForm(true)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#154539]/10 hover:bg-[#154539]/20 text-[#154539] hover:text-[#1a5143] text-xs font-bold rounded-lg transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Agregar Persona</span>
+                </button>
+              )}
+            </div>
+
+            {/* Add Participant Inline Form */}
+            {showAddParticipantForm && (
+              <form onSubmit={handleAddParticipant} className="mb-6 p-4 rounded-xl border border-gray-200 bg-[#F7F4EC]/30 space-y-4 animate-fade-in">
+                <h4 className="text-xs font-bold text-[#154539] uppercase tracking-wider border-b border-gray-100 pb-1">
+                  Registrar Nuevo Participante
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Nombre</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Sofía Martínez"
+                      value={newParticipantName}
+                      onChange={e => setNewParticipantName(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Régimen</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: Vegano / Vegetariano / Omnívoro"
+                      value={newParticipantDiet}
+                      onChange={e => setNewParticipantDiet(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Requerimiento</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: Alergia al gluten / Dolor lumbar"
+                      value={newParticipantReq}
+                      onChange={e => setNewParticipantReq(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#154539] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddParticipantForm(false);
+                      setNewParticipantName('');
+                      setNewParticipantDiet('');
+                      setNewParticipantReq('');
+                    }}
+                    className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 bg-[#154539] hover:bg-[#1a5143] text-white rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Guardar</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Participants Grid */}
+            {retreat?.participantsList && retreat.participantsList.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {retreat.participantsList.map((p, idx) => (
-                  <div key={idx} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 space-y-2">
+                  <div key={idx} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 space-y-2 group relative hover:border-gray-200 transition-all">
                     <div className="flex items-center justify-between">
                       <span className="font-serif text-sm font-bold text-gray-900">{p.name}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] font-semibold">Dietética</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] font-semibold">
+                          Dietética
+                        </span>
+                        <button
+                          onClick={() => handleDeleteParticipant(idx)}
+                          className="p-1 text-gray-300 hover:text-red-500 rounded hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                          title="Eliminar participante"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-600 font-light">
                       <strong className="text-gray-800 font-medium">Régimen:</strong> {p.dietary}
@@ -971,8 +1141,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8 border border-dashed border-gray-200 rounded-xl bg-gray-50/20">
+                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400 font-light">No hay fichas de participantes registradas aún.</p>
+                <button
+                  onClick={() => setShowAddParticipantForm(true)}
+                  className="mt-3 text-xs font-bold text-[#154539] hover:text-[#C5A059] transition-colors"
+                >
+                  Registrar el primer participante
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Side Column Panels (Checklists, Progress, Notes) */}

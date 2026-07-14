@@ -4,6 +4,7 @@ export class NeuroacousticSynth {
   private activeNodes: AudioNode[] = [];
   private intervalId: any = null;
   private secondaryIntervalId: any = null;
+  private timeouts: any[] = [];
   private category: string = '';
   private currentVolume: number = 0.6; // 0 to 1
 
@@ -64,6 +65,9 @@ export class NeuroacousticSynth {
       clearTimeout(this.secondaryIntervalId);
       this.secondaryIntervalId = null;
     }
+    this.timeouts.forEach(t => clearTimeout(t));
+    this.timeouts = [];
+
     this.activeNodes.forEach(node => {
       try {
         // @ts-ignore
@@ -257,6 +261,13 @@ export class NeuroacousticSynth {
       bell.stop(t + 11);
       ring1.stop(t + 11);
       ring2.stop(t + 11);
+
+      this.activeNodes.push(bell, ring1, ring2, bGain);
+
+      const cleanTimeout = setTimeout(() => {
+        this.activeNodes = this.activeNodes.filter(n => n !== bell && n !== ring1 && n !== ring2 && n !== bGain);
+      }, 11000);
+      this.timeouts.push(cleanTimeout);
     };
 
     playTibetanBell();
@@ -315,7 +326,7 @@ export class NeuroacousticSynth {
       padGain.gain.setValueAtTime(0.06, t);
       padGain.gain.linearRampToValueAtTime(0.002, t + 2);
 
-      setTimeout(() => {
+      const pTimeout = setTimeout(() => {
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
         pad1.frequency.setValueAtTime(notes[0], now);
@@ -323,6 +334,7 @@ export class NeuroacousticSynth {
         pad3.frequency.setValueAtTime(notes[2], now);
         padGain.gain.linearRampToValueAtTime(0.06, now + 3.5);
       }, 2200);
+      this.timeouts.push(pTimeout);
 
       chordIdx = (chordIdx + 1) % chords.length;
     };
@@ -371,6 +383,12 @@ export class NeuroacousticSynth {
 
       note.start(t);
       note.stop(t + 7);
+
+      this.activeNodes.push(note, filter, nGain);
+      const noteTimeout = setTimeout(() => {
+        this.activeNodes = this.activeNodes.filter(n => n !== note && n !== filter && n !== nGain);
+      }, 7000);
+      this.timeouts.push(noteTimeout);
     };
 
     playNote();

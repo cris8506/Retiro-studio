@@ -147,8 +147,13 @@ export default function App() {
     };
 
     const handleErr = () => {
+      const err = audio.error;
+      // Code 1 is MEDIA_ERR_ABORTED. We MUST ignore it!
+      if (err && err.code === 1) {
+        return;
+      }
       if (audio.src && audio.src !== window.location.href) {
-        console.error("Audio player loading error. Switching to synthesized atmosphere fallback.");
+        console.error("Audio player loading error:", err ? `Code ${err.code}: ${err.message}` : "unknown", "Switching to synthesized atmosphere fallback.");
         handleAudioErrorRef.current();
       }
     };
@@ -202,9 +207,10 @@ export default function App() {
     const trackChanged = prevTrackIdRef.current !== activeTrack.id;
     prevTrackIdRef.current = activeTrack.id;
 
-    setIsUsingSynth(isSynth);
-
     if (trackChanged) {
+      // Set the synth state only when track actually changes
+      setIsUsingSynth(isSynth);
+
       if (synthRef.current) {
         synthRef.current.stop();
       }
@@ -246,6 +252,7 @@ export default function App() {
             synthRef.current.stop();
           }
         }
+        audio.pause();
       } else {
         if (synthRef.current) {
           synthRef.current.stop();
@@ -420,6 +427,50 @@ export default function App() {
     }
   };
 
+  const handleDeleteRetreat = async (id: string) => {
+    try {
+      const response = await fetch(`/api/retreats?id=${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error("No se pudo eliminar el retiro.");
+      }
+      const updatedRetreats = retreats.filter(r => r.id !== id);
+      setRetreats(updatedRetreats);
+      if (updatedRetreats.length > 0) {
+        setActiveRetreat(updatedRetreats[updatedRetreats.length - 1]);
+        setRetreatsStatus('loaded');
+      } else {
+        setRetreatsStatus('empty');
+        setActiveRetreat({
+          id: '',
+          name: '',
+          type: 'Bienestar y Reconexión',
+          goal: '',
+          duration: 3,
+          participantsCount: 15,
+          participantsAge: '30 - 50 años',
+          participantsProfile: 'Coaches',
+          experienceLevel: 'Principiante a Intermedio',
+          locationType: 'Naturaleza (Bosque templado)',
+          desiredEnergy: 'Serena, introspectiva pero conectada',
+          expectedResults: 'Liberación de cortisol, técnicas corporales aprendidas, integración profunda',
+          description: '',
+          idealProfile: '',
+          agenda: [],
+          materialsList: [],
+          participantsList: [],
+          notes: [],
+          progress: 0
+        });
+      }
+      handleShowNotification("🌿 El retiro ha sido eliminado correctamente.");
+    } catch (err) {
+      console.error("Error deleting retreat:", err);
+      handleShowNotification("⚠️ No se pudo eliminar el retiro.");
+    }
+  };
+
   // Render proper view component based on active navigation tab
   const renderViewContent = () => {
     switch (currentView) {
@@ -455,6 +506,7 @@ export default function App() {
             retreats={retreats}
             onSelectRetreat={setActiveRetreat}
             onUpdateRetreat={handleUpdateRetreat}
+            onDeleteRetreat={handleDeleteRetreat}
             onViewChange={setCurrentView}
             onPlayTrack={handlePlayTrack}
             activeTrack={activeTrack}
