@@ -230,18 +230,13 @@ export default function App() {
 
         if (isPlaying) {
           audio.play().catch(err => {
-            console.warn("Playback failed. Activating live synthesized audio stream instead.", err);
-            setIsUsingSynth(true);
-            setTotalDuration(300);
-            if (synthRef.current) {
-              synthRef.current.start(activeTrack.category, soundIntensity / 100);
-            }
+            console.warn("Playback blocked by autoplay policies or loading delay.", err);
           });
         }
       }
     } else {
       // Same track, only isPlaying state changed
-      if (isSynth) {
+      if (isUsingSynth) {
         if (isPlaying) {
           if (synthRef.current) {
             synthRef.current.start(activeTrack.category, soundIntensity / 100);
@@ -252,6 +247,10 @@ export default function App() {
           }
         }
       } else {
+        if (synthRef.current) {
+          synthRef.current.stop();
+        }
+
         if (isPlaying) {
           audio.volume = soundIntensity / 100;
           audio.play().catch(err => {
@@ -262,7 +261,7 @@ export default function App() {
         }
       }
     }
-  }, [activeTrack, isPlaying]);
+  }, [activeTrack, isPlaying, isUsingSynth]);
 
   // Handle virtual ticker for synthesized play sessions
   useEffect(() => {
